@@ -28,7 +28,7 @@ class MidiTwoCable(Interface):
         midi_if1 = itf_num + 1
         desc.interface(midi_if1, 4, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING)  # 4 endpoints
         total_class_len = (
-            7 + 4*JACK_IN_DESC_LEN + 4*JACK_OUT_DESC_LEN
+            7 + 4*_JACK_IN_DESC_LEN + 4*_JACK_OUT_DESC_LEN
         )
         desc.pack("<BBBHH", 7, 0x24, 0x01, 0x0100, total_class_len)
         # Jacks: 2 Embedded IN, 2 External IN, 2 Embedded OUT, 2 External OUT
@@ -64,10 +64,10 @@ class MidiTwoCable(Interface):
     def num_eps(self): return 4
 
 def _jack_in_desc(desc, bJackType, bJackID):
-    desc.pack("<BBBBBB", JACK_IN_DESC_LEN, 0x24, 0x02, bJackType, bJackID, 0x00)
+    desc.pack("<BBBBBB", _JACK_IN_DESC_LEN, 0x24, 0x02, bJackType, bJackID, 0x00)
 
 def _jack_out_desc(desc, bJackType, bJackID, bSourceId, bSourcePin):
-    desc.pack("<BBBBBBBBB", JACK_OUT_DESC_LEN, 0x24, 0x03, bJackType, bJackID, 0x01, bSourceId, bSourcePin, 0x00)
+    desc.pack("<BBBBBBBBB", _JACK_OUT_DESC_LEN, 0x24, 0x03, bJackType, bJackID, 0x01, bSourceId, bSourcePin, 0x00)
 
 def _audio_endpoint(desc, bEndpointAddress):
     desc.pack("<BBBBHBBB", _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, bEndpointAddress, 2, EP_MIDI_PACKET_SIZE, 0, 0, 0)
@@ -76,6 +76,8 @@ def _midi_class_ep(desc, jack_id):
     desc.pack("<BBBBB", _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, 1, jack_id)
 
 if __name__ == "__main__":
+    import time
+    time.sleep_ms(1000)
     midi = MidiTwoCable()
     import usb.device.core
     desc = usb.device.core.Descriptor(bytearray(512))
