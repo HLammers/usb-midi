@@ -1,133 +1,91 @@
-"""
-Flexible Windows-compatible USB MIDI 1.0 multi-port implementation.
+# MicroPython USB MIDI Multi-Cable example (asymmetric ports)
+#
+# Demonstrates using the MidiMulti class to create a MIDI device with
+# any number of IN (host->device) and OUT (device->host) virtual cables.
+# On Raspberry Pi Pico 2, blinks the on-board LED when MIDI data is received.
+#
+# To run:
+#   1. Ensure your custom MidiMulti module is available in your PYTHONPATH.
+#   2. mpremote run midi_multi_example.py
+#   3. After device re-enumeration, reconnect: mpremote connect PORTNAME
+#
+# Copyright (c) 2025, your contributors. MIT License.
 
-- Each port is a pair of Jacks and endpoints within a single MIDIStreaming interface.
-- Each port can have a custom interface name (i.e., for DAW display as "Port 1", "Port 2" etc.).
-- Number of ports is configurable.
-- Ensures cross-platform compatibility (Windows, macOS, Linux).
+import usb.device
+from usb.device.midi_multi import MidiMulti
+import time
 
-NOTE: Windows only supports multiple MIDI "ports" if each is presented as a separate interface
-with its own endpoints and unique string descriptor for the interface name.
+time.sleep_ms(1000)
 
-Integrate the code with your USB stack as needed.
-"""
+try:
+    from machine import Pin, Timer
+    LED_PIN = 25  # Pico 2 onboard LED
+    led = Pin(LED_PIN, Pin.OUT)
+    led_timer = Timer()
+    def blink_led(ms=50):
+        led.value(1)
+        led_timer.init(mode=Timer.ONE_SHOT, period=ms, callback=lambda t: led.value(0))
+except Exception:
+    # Fallback for environments without machine/Pin/Timer
+    def blink_led(ms=50):
+        pass
 
-from micropython import const
+# Example: 3 MIDI IN ports (host->device), 2 MIDI OUT ports (device->host)
+NUM_IN = 3
+NUM_OUT = 2
 
-_INTERFACE_CLASS_AUDIO = const(0x01)
-_INTERFACE_SUBCLASS_AUDIO_CONTROL = const(0x01)
-_INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING = const(0x03)
-_STD_DESC_AUDIO_ENDPOINT_LEN = const(9)
-_CLASS_DESC_ENDPOINT_LEN = const(5)
-_JACK_TYPE_EMBEDDED = const(0x01)
-_JACK_TYPE_EXTERNAL = const(0x02)
-_JACK_IN_DESC_LEN = const(6)
-_JACK_OUT_DESC_LEN = const(9)
-EP_MIDI_PACKET_SIZE = 32
+class MyMidiMulti(MidiMulti):
+    def on_open(self, usb_dev):
+        super().on_open(usb_dev)
+        print("Device opened by host")
 
-class MidiMultiPort:
-    def __init__(self, num_ports=2, product_name="TestMIDI", ac_interface_name="MIDI Control", port_names=None):
-        self.num_ports = num_ports
-        self.product_name = product_name
-        self.ac_interface_name = ac_interface_name
-        if port_names is None:
-            self.port_names = [f"MIDI Port {i+1}" for i in range(num_ports)]
+    # Example: print received MIDI data for each IN port and blink LED
+    def setup_callbacks(self):
+        for i in range(self.num_in):
+            self.set_in_callback(i, self._print_midi_in)
+
+    def _print_midi_in(self, msg_bytes, cable_number):
+        blink_led()
+        # msg_bytes: always 4 bytes (USB MIDI event packet)
+        # For note on/off, decode status
+        status = msg_bytes[1] & 0xF0
+        chan = msg_bytes[1] & 0x0F
+        if status == 0x90 and msg_bytes[3] != 0:  # Note On
+            print(f"RX Note On (cable {cable_number}) ch{chan} note {msg_bytes[2]} vel {msg_bytes[3]}")
+        elif status == 0x80 or (status == 0x90 and msg_bytes[3] == 0):  # Note Off
+            print(f"RX Note Off (cable {cable_number}) ch{chan} note {msg_bytes[2]} vel {msg_bytes[3]}")
+        elif status == 0xB0:  # Control Change
+            print(f"RX CC (cable {cable_number}) ch{chan} ctrl {msg_bytes[2]} value {msg_bytes[3]}")
         else:
-            self.port_names = port_names
+            print(f"RX MIDI (cable {cable_number}): {list(msg_bytes)}")
 
-    def desc_cfg(self, desc, itf_start, ep_start, strs):
-        ac_if_str_idx = self._get_str_idx(strs, self.ac_interface_name)
-        # AudioControl interface (interface 0)
-        desc.interface(itf_start, 0, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_CONTROL, ac_if_str_idx)
-        desc.pack("<BBBHHBB", 9, 0x24, 0x01, 0x0100, 0x0009, self.num_ports, itf_start + 1)
+m = MyMidiMulti(num_in=NUM_IN, num_out=NUM_OUT)
+usb.device.get().init(m, builtin_driver=True)
+print("Waiting for USB host to configure the interface...")
 
-        jack_id = 1
-        ep = ep_start
-        # For each port: Make a separate MIDIStreaming interface
-        for port_idx in range(self.num_ports):
-            ms_if_str_idx = self._get_str_idx(strs, self.port_names[port_idx])
-            # MIDIStreaming interface for this port
-            desc.interface(itf_start + 1 + port_idx, 2, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING, ms_if_str_idx)
-            # Class-specific MS interface header
-            class_len = 7 + 2 * _JACK_IN_DESC_LEN + 2 * _JACK_OUT_DESC_LEN
-            desc.pack("<BBBHH", 7, 0x24, 0x01, 0x0100, class_len)
-            # Jacks: Embedded IN, External IN, Embedded OUT, External OUT
-            emb_in_id  = jack_id
-            ext_in_id  = jack_id + 1
-            emb_out_id = jack_id + 2
-            ext_out_id = jack_id + 3
-            desc.pack("<BBBBBB", _JACK_IN_DESC_LEN, 0x24, 0x02, _JACK_TYPE_EMBEDDED, emb_in_id, 0)
-            desc.pack("<BBBBBB", _JACK_IN_DESC_LEN, 0x24, 0x02, _JACK_TYPE_EXTERNAL, ext_in_id, 0)
-            desc.pack("<BBBBBBBBB", _JACK_OUT_DESC_LEN, 0x24, 0x03, _JACK_TYPE_EMBEDDED, emb_out_id, 1, ext_in_id, 1, 0)
-            desc.pack("<BBBBBBBBB", _JACK_OUT_DESC_LEN, 0x24, 0x03, _JACK_TYPE_EXTERNAL, ext_out_id, 1, emb_in_id, 1, 0)
-            # Endpoints
-            ep_in  = 0x81 + port_idx
-            ep_out = 0x01 + port_idx
-            desc.pack("<BBBBHBBB", _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_in, 2, EP_MIDI_PACKET_SIZE, 0, 0, 0)
-            desc.pack("<BBBBB", _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, 1, emb_out_id)
-            desc.pack("<BBBBHBBB", _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_out, 2, EP_MIDI_PACKET_SIZE, 0, 0, 0)
-            desc.pack("<BBBBB", _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, 1, emb_in_id)
-            # Prepare for next port
-            jack_id += 4
+while not m._open:
+    time.sleep_ms(100)
+m.setup_callbacks()
 
-    def num_itfs(self):
-        return 1 + self.num_ports  # 1 AudioControl + N MIDIStreaming
+print("Starting MIDI multi-port loop...")
 
-    def num_eps(self):
-        return self.num_ports * 2  # Each port = 2 endpoints (IN and OUT)
+# Example: Send Note On/Off on all OUT ports, round-robin
+CHANNEL = 0
+PITCH = 60
+control_val = 0
+OUT_PORTS = NUM_OUT
 
-    def _get_str_idx(self, strs, s):
-        if not s:
-            return 0
-        if s in strs:
-            return strs.index(s) + 1
-        strs.append(s)
-        return len(strs)
+while m._open:
+    for out_port in range(OUT_PORTS):
+        print(f"TX Note On OUT{out_port} ch{CHANNEL} pitch {PITCH}")
+        m.send_note_on(out_port, CHANNEL, PITCH, 100)
+        time.sleep(0.5)
+        print(f"TX Note Off OUT{out_port} ch{CHANNEL} pitch {PITCH}")
+        m.send_note_off(out_port, CHANNEL, PITCH, 0)
+        time.sleep(0.5)
+        print(f"TX Control OUT{out_port} ch{CHANNEL} ctrl 64 value {control_val}")
+        m.send_midi(out_port, [((out_port & 0x0F) << 4) | 0xB, 0xB0 | CHANNEL, 64, control_val & 0x7F])
+        time.sleep(0.5)
+        control_val = (control_val + 1) & 0x7F
 
-# Dummy Descriptor class for test printing
-class Descriptor:
-    def __init__(self, buf):
-        self.b = buf
-        self.o = 0
-    def pack(self, fmt, *args):
-        import struct
-        s = struct.pack(fmt, *args)
-        self.b[self.o:self.o + len(s)] = s
-        self.o += len(s)
-    def interface(self, num, eps, cls, subcls, iInterface=0):
-        # Standard interface descriptor with iInterface
-        self.pack("<BBBBBBBBB", 9, 0x04, num, 0, eps, cls, subcls, 0x00, iInterface)
-
-if __name__ == "__main__":
-    NUM_PORTS = 2
-    PRODUCT_NAME = "TestMIDI"
-    AC_IF_NAME = "Test MIDI Control"
-    PORT_NAMES = ["MIDI Port A", "MIDI Port B"]
-
-    midi = MidiMultiPort(num_ports=NUM_PORTS, product_name=PRODUCT_NAME, ac_interface_name=AC_IF_NAME, port_names=PORT_NAMES)
-    import usb.device.core
-    desc = usb.device.core.Descriptor(bytearray(512))
-    # desc = Descriptor(bytearray(512))
-    strs = [PRODUCT_NAME, AC_IF_NAME] + PORT_NAMES
-    # Config header: wTotalLength will be filled later
-    desc.pack("<BBHBBBBB", 9, 2, 0, midi.num_itfs(), 1, 0, 0x80, 0x32)
-
-    # 🟢 Add IAD here!
-    desc.pack("<BBBBBBBB", 8, 0x0B, 0, 3, 0x01, 0x00, 0x00, 0)
-
-    midi.desc_cfg(desc, 0, 1, strs)
-    wTotalLength = desc.o
-    desc.b[2] = wTotalLength & 0xFF
-    desc.b[3] = (wTotalLength >> 8) & 0xFF
-
-    print("Config descriptor header:", list(desc.b[:9]))
-    print("Descriptor length:", desc.o)
-    print("Descriptor hex:", desc.b[:desc.o].hex())
-    print("Descriptor bytes:", list(desc.b[:desc.o]))
-    print("String descriptors:", strs)
-
-    import time
-    time.sleep_ms(1000)
-
-    dev = usb.device.get()
-    dev.init(midi, manufacturer_str="TestMaker", product_str="TestMIDI", serial_str="123456")
+print("USB host has reset device, example done.")
