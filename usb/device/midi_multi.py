@@ -151,6 +151,8 @@ class MidiMulti(Interface):
         self._rx_xfer()
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
+        # Interface Association Descriptor
+        desc.interface_assoc(itf_num, 2, 0x01, 0x01, 0x00)
         # AudioControl interface
         desc.interface(itf_num, 0, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_CONTROL)
         desc.pack('<BBBHHBB', 9, 0x24, 0x01, 0x0100, 0x0009, 1, itf_num + 1)
@@ -188,12 +190,12 @@ class MidiMulti(Interface):
         desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_in, 2, 64, 0, 0, 0)
         desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
 
-        if desc.b:
-            print("Config descriptor header:", list(desc.b[:9]))
-            print("Descriptor length:", desc.o)
-            print("Descriptor hex:", desc.b[:desc.o].hex())
-            print("Descriptor bytes:", list(desc.b[:desc.o]))
-            time.sleep_ms(1000)
+        # if desc.b:
+        #     print("Config descriptor header:", list(desc.b[:9]))
+        #     print("Descriptor length:", desc.o)
+        #     print("Descriptor hex:", desc.b[:desc.o].hex())
+        #     print("Descriptor bytes:", list(desc.b[:desc.o]))
+        #     time.sleep_ms(1000)
 
     def num_itfs(self):
         return 2

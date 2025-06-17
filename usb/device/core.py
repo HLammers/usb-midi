@@ -7,6 +7,7 @@
 from micropython import const
 import machine
 import struct
+import time
 
 try:
     from _thread import get_ident
@@ -233,6 +234,13 @@ class _Device:
             bmAttributes,
             max_power_ma,
         )
+
+        if desc.b:
+            print("Config descriptor header:", list(desc.b[:9]))
+            print("Descriptor length:", desc.o)
+            print("Descriptor hex:", desc.b[:desc.o].hex())
+            print("Descriptor bytes:", list(desc.b[:desc.o]))
+            time.sleep_ms(1000)
 
         _usbd.config(
             desc_dev,
