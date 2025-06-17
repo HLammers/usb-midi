@@ -241,6 +241,12 @@ class MIDIInterface(Interface):
         # tx side, USB "out" endpoint and embedded MIDI OUT jacks
         _audio_endpoint(desc, self.ep_out, _EMB_IN_JACK_ID)
 
+        if desc.b:
+            print("Config descriptor header:", list(desc.b[:9]))
+            print("Descriptor length:", desc.o)
+            print("Descriptor hex:", desc.b[:desc.o].hex())
+            print("Descriptor bytes:", list(desc.b[:desc.o]))
+
     def num_itfs(self):
         return 2
 

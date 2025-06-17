@@ -41,6 +41,8 @@ class MIDIExample(MIDIInterface):
     def on_control_change(self, channel, controller, value):
         print(f"RX Control channel {channel} controller {controller} value {value}")
 
+# Delay to allow the REPL in VSCode to connect
+time.sleep_ms(1000)
 
 m = MIDIExample()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.

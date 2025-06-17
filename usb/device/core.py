@@ -182,6 +182,7 @@ class _Device:
         # Allocate the real Descriptor helper to write into it, starting
         # after the standard configuration descriptor
         desc = Descriptor(bytearray(desc.o))
+
         desc.extend(initial_cfg)
         for itf in itfs:
             itf.desc_cfg(desc, itf_num, ep_num, strs)
