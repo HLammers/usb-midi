@@ -1,5 +1,6 @@
 from micropython import schedule
 from usb.device.core import Interface, Buffer
+import time
 
 # USB MIDI 1.0 constants
 _INTERFACE_CLASS_AUDIO = const(0x01)
@@ -181,9 +182,10 @@ class MidiMulti(Interface):
             print("Descriptor length:", desc.o)
             print("Descriptor hex:", desc.b[:desc.o].hex())
             print("Descriptor bytes:", list(desc.b[:desc.o]))
+            time.sleep_ms(1000)
 
     def num_itfs(self):
         return 2
 
     def num_eps(self):
-        return 1
+        return 2

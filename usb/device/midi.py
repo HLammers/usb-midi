@@ -1,7 +1,7 @@
 # MicroPython USB MIDI module
 # MIT license; Copyright (c) 2023 Paul Hamshere, 2023-2024 Angus Gratton
 from micropython import const, schedule
-import struct
+import time
 
 from .core import Interface, Buffer
 
@@ -246,6 +246,7 @@ class MIDIInterface(Interface):
             print("Descriptor length:", desc.o)
             print("Descriptor hex:", desc.b[:desc.o].hex())
             print("Descriptor bytes:", list(desc.b[:desc.o]))
+            time.sleep_ms(1000)
 
     def num_itfs(self):
         return 2
