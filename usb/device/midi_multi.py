@@ -104,8 +104,10 @@ class MidiMulti(Interface):
         # Keep an active IN transfer to send data to the host, whenever
         # there is data to send.
         _tx_buffer = self._tx_buffer
-        if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _tx_buffer.readable():
-            self.submit_xfer(ep_in, _tx_buffer.pend_read(), self._tx_cb)
+        # if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _tx_buffer.readable():
+        #     self.submit_xfer(ep_in, _tx_buffer.pend_read(), self._tx_cb)
+        if self.is_open() and not self.xfer_pending(self.ep_in) and _tx_buffer.readable():
+            self.submit_xfer(self.ep_in, _tx_buffer.pend_read(), self._tx_cb)
 
     def _tx_cb(self, ep, res, num_bytes):
         if res == 0:
@@ -115,8 +117,10 @@ class MidiMulti(Interface):
     def _rx_xfer(self):
         # Keep an active OUT transfer to receive MIDI events from the host
         _rx_buffer = self._rx_buffer
-        if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():
-            self.submit_xfer(ep_out, _rx_buffer.pend_write(), self._rx_cb)
+        # if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():
+        #     self.submit_xfer(ep_out, _rx_buffer.pend_write(), self._rx_cb)
+        if self.is_open() and not self.xfer_pending(self.ep_out) and _rx_buffer.writable():
+            self.submit_xfer(self.ep_out, _rx_buffer.pend_write(), self._rx_cb)
 
     def _rx_cb(self, ep, res, num_bytes):
         if res == 0:
@@ -169,12 +173,19 @@ class MidiMulti(Interface):
         for i in range(num_in):
             desc.pack('<BBBBBB', _JACK_IN_DESC_LEN, 0x24, 0x02, _JACK_TYPE_EXTERNAL, 1 + num_in + 2 * num_out + i, 0x00)
         # Single shared OUT endpoint
+        # self.ep_out = ep_num
+        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_num, 2, 64, 0, 0, 0)
+        # desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
+        # # Single shared IN endpoint
+        # self.ep_in = (ep_in := ep_num | _EP_IN_FLAG)
+        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_in, 2, 64, 0, 0, 0)
+        # desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
         self.ep_out = ep_num
-        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_num, 2, 64, 0, 0, 0)
+        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_out, 2, 64, 0, 0, 0)
         desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
         # Single shared IN endpoint
-        self.ep_in = (ep_in := ep_num | _EP_IN_FLAG)
-        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_in, 2, 64, 0, 0, 0)
+        self.ep_in = ep_num | _EP_IN_FLAG
+        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_in, 2, 64, 0, 0, 0)
         desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
 
         if desc.b:

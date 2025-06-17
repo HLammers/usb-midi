@@ -63,7 +63,7 @@ time.sleep_ms(1000)
 m = MyMidiMulti(num_in=NUM_IN, num_out=NUM_OUT)
 m.setup_callbacks()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
-usb.device.get().init(m, builtin_driver=True, manufacturer_str="TestMaker", product_str="TestMIDI", serial_str="123456")
+usb.device.get().init(m, builtin_driver=False, manufacturer_str="TestMaker", product_str="TestMIDI", serial_str="123456")
 
 print('Waiting for USB host to configure the interface...')
 
