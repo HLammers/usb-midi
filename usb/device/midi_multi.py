@@ -6,15 +6,10 @@ import time
 _INTERFACE_CLASS_AUDIO = const(0x01)
 _INTERFACE_SUBCLASS_AUDIO_CONTROL = const(0x01)
 _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING = const(0x03)
-_STD_DESC_AUDIO_ENDPOINT_LEN = const(9)
-_CLASS_DESC_ENDPOINT_LEN = const(5)
 _JACK_TYPE_EMBEDDED = const(0x01)
 _JACK_TYPE_EXTERNAL = const(0x02)
-_JACK_IN_DESC_LEN = const(6)
-_JACK_OUT_DESC_LEN = const(9)
 _EP_IN_FLAG = const(0x80)
 _EP_MIDI_PACKET_SIZE = 64  # Larger buffer for higher bandwidth
-_EP_BULK = const(0x02)
 
 _MAX_CABLES = const(16)  # USB MIDI 1.0: up to 16 cables per endpoint
 
@@ -160,35 +155,35 @@ class MidiMulti(Interface):
         ms_if_num = itf_num + 1
         desc.interface(ms_if_num, 2, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING)
         # Class-specific MIDIStreaming Interface header
-        total_class_specific_len = 7 + (num_in := self.num_in) * _JACK_IN_DESC_LEN + (num_out := self.num_out) * _JACK_OUT_DESC_LEN + num_out * _JACK_IN_DESC_LEN + num_in * _JACK_OUT_DESC_LEN
+        total_class_specific_len = 7 + (num_in := self.num_in) * 6 + (num_out := self.num_out) * 9 + num_out * 6 + num_in * 9
         desc.pack('<BBBHH', 7, 0x24, 0x01, 0x0100, total_class_specific_len)
         # IN Jacks for each virtual IN cable
         for i in range(num_in):
-            desc.pack('<BBBBBB', _JACK_IN_DESC_LEN, 0x24, 0x02, _JACK_TYPE_EMBEDDED, 1 + i, 0x00)
+            desc.pack('<BBBBBB', 6, 0x24, 0x02, _JACK_TYPE_EMBEDDED, 1 + i, 0x00)
         # OUT Jacks for each virtual OUT cable
         for i in range(num_out):
-            desc.pack('<BBBBBBBBB', _JACK_OUT_DESC_LEN, 0x24, 0x03, _JACK_TYPE_EMBEDDED, 1 + num_in + i, 0x01, 1 + i, 1, 0x00)
+            desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, _JACK_TYPE_EMBEDDED, 1 + num_in + i, 0x01, 1 + i, 1, 0x00)
         # External OUT jacks for each virtual IN cable
         for i in range(num_out):
-            desc.pack('<BBBBBBBBB', _JACK_OUT_DESC_LEN, 0x24, 0x03, _JACK_TYPE_EXTERNAL, 1 + num_in + num_out + i, 0x01, 1 + i, 1, 0x00)
+            desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, _JACK_TYPE_EXTERNAL, 1 + num_in + num_out + i, 0x01, 1 + i, 1, 0x00)
         # External IN jacks for each virtual OUT cable
         for i in range(num_in):
-            desc.pack('<BBBBBB', _JACK_IN_DESC_LEN, 0x24, 0x02, _JACK_TYPE_EXTERNAL, 1 + num_in + 2 * num_out + i, 0x00)
+            desc.pack('<BBBBBB', 6, 0x24, 0x02, _JACK_TYPE_EXTERNAL, 1 + num_in + 2 * num_out + i, 0x00)
         # Single shared OUT endpoint
         # self.ep_out = ep_num
-        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_num, 3, 32, 0, 0, 1)
-        # desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
+        # desc.pack('<BBBBHB', 7, 0x05, ep_num, 3, 32, 1)
+        # desc.pack('<BBBBB', 5, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
         # # Single shared IN endpoint
         # self.ep_in = (ep_in := ep_num | _EP_IN_FLAG)
-        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_in, 3, 32, 0, 0, 1)
-        # desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
+        # desc.pack('<BBBBHB', 7, 0x05, ep_in, 3, 32, 1)
+        # desc.pack('<BBBBB', 5, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
         self.ep_out = ep_num
-        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_out, 3, 32, 0, 0, 1)
-        desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
+        desc.pack('<BBBBHB', 7, 0x05, self.ep_out, 3, 32, 1)
+        desc.pack('<BBBBB', 5, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
         # Single shared IN endpoint
         self.ep_in = ep_num | _EP_IN_FLAG
-        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_in, 3, 32, 0, 0, 1)
-        desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
+        desc.pack('<BBBBHB', 7, 0x05, self.ep_in, 3, 32, 1)
+        desc.pack('<BBBBB', 5, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
 
         # if desc.b:
         #     print("Config descriptor header:", list(desc.b[:9]))
