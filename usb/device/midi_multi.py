@@ -176,18 +176,18 @@ class MidiMulti(Interface):
             desc.pack('<BBBBBB', _JACK_IN_DESC_LEN, 0x24, 0x02, _JACK_TYPE_EXTERNAL, 1 + num_in + 2 * num_out + i, 0x00)
         # Single shared OUT endpoint
         # self.ep_out = ep_num
-        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_num, 3, 64, 0, 0, 0)
+        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_num, 3, 32, 0, 0, 1)
         # desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
         # # Single shared IN endpoint
         # self.ep_in = (ep_in := ep_num | _EP_IN_FLAG)
-        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_in, 3, 64, 0, 0, 0)
+        # desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, ep_in, 3, 32, 0, 0, 1)
         # desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
         self.ep_out = ep_num
-        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_out, 3, 64, 0, 0, 0)
+        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_out, 3, 32, 0, 0, 1)
         desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
         # Single shared IN endpoint
         self.ep_in = ep_num | _EP_IN_FLAG
-        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_in, 3, 64, 0, 0, 0)
+        desc.pack('<BBBBHBBB', _STD_DESC_AUDIO_ENDPOINT_LEN, 0x05, self.ep_in, 3, 32, 0, 0, 1)
         desc.pack('<BBBBB', _CLASS_DESC_ENDPOINT_LEN, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
 
         # if desc.b:
