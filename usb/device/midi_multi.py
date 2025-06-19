@@ -148,7 +148,7 @@ class MidiMulti(Interface):
     def desc_cfg(self, desc, itf_num, ep_num, strs):
         # Interface Association Descriptor
 ###### try with and without IAD
-        desc.interface_assoc(itf_num, 2, 0x01, 0x01, 0x00)
+        # desc.interface_assoc(itf_num, 2, 0x01, 0x01, 0x00)
         # AudioControl interface
         desc.interface(itf_num, 0, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_CONTROL)
         desc.pack('<BBBHHBB', 9, 0x24, 0x01, 0x0100, 0x0009, 0x01, itf_num + 1)
