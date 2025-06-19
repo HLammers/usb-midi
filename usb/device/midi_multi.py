@@ -33,7 +33,7 @@ class MidiPortInterface(Interface):
     def __init__(self, port_index, port_name=None):
         super().__init__()
         self.port_index = port_index
-        self.port_name = port_name or f"MIDI Port {port_index+1}"
+        self.port_name = port_name
         self.ep_out = None
         self.ep_in = None
         self._rx_buffer = Buffer(_EP_MIDI_PACKET_SIZE)
@@ -101,9 +101,13 @@ class MidiPortInterface(Interface):
         self._rx_xfer()
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
-        # Interface Association Descriptor
+        if self.port_name is not None:
+            iInterface = len(strs)
+            strs.append(self.port_name)
+        else:
+            iInterface = 0
         # MIDIStreaming interface
-        desc.interface(itf_num, 2, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING)
+        desc.interface(itf_num, 2, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING, 0, iInterface)
         # Class-specific MS header (points to just this interface)
         desc.pack('<BBBHH', 7, 0x24, 0x01, 0x0100, 25)
         # Embedded IN Jack
@@ -131,7 +135,7 @@ class MidiMulti(Interface):
     def __init__(self, num_ports=1, port_names=None):
         super().__init__()
         self.num_ports = num_ports
-        self.port_names = port_names or [f"MIDI Port {i+1}" for i in range(num_ports)]
+        self.port_names = port_names or [None for i in range(num_ports)]
         self.ac = MidiACInterface(self)
         self.ports = [MidiPortInterface(i, self.port_names[i]) for i in range(num_ports)]
 
