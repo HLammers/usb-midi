@@ -147,6 +147,7 @@ class MidiMulti(Interface):
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
         # Interface Association Descriptor
+###### try with and without IAD
         desc.interface_assoc(itf_num, 2, 0x01, 0x01, 0x00)
         # AudioControl interface
         desc.interface(itf_num, 0, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_CONTROL)
@@ -164,25 +165,20 @@ class MidiMulti(Interface):
         for i in range(num_out):
             desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, _JACK_TYPE_EMBEDDED, 1 + num_in + i, 0x01, 1 + i, 1, 0x00)
         # External OUT jacks for each virtual IN cable
+###### try with and without external OUT jacks
         for i in range(num_out):
             desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, _JACK_TYPE_EXTERNAL, 1 + num_in + num_out + i, 0x01, 1 + i, 1, 0x00)
         # External IN jacks for each virtual OUT cable
+###### try with and without external IN jacks
         for i in range(num_in):
             desc.pack('<BBBBBB', 6, 0x24, 0x02, _JACK_TYPE_EXTERNAL, 1 + num_in + 2 * num_out + i, 0x00)
         # Single shared OUT endpoint
-        # self.ep_out = ep_num
-        # desc.pack('<BBBBHB', 7, 0x05, ep_num, 3, 32, 1)
-        # desc.pack('<BBBBB', 5, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
-        # # Single shared IN endpoint
-        # self.ep_in = (ep_in := ep_num | _EP_IN_FLAG)
-        # desc.pack('<BBBBHB', 7, 0x05, ep_in, 3, 32, 1)
-        # desc.pack('<BBBBB', 5, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
         self.ep_out = ep_num
-        desc.pack('<BBBBHB', 7, 0x05, self.ep_out, 3, 32, 1)
+        desc.pack('<BBBBHB', 7, 0x05, ep_num, 3, 32, 1)
         desc.pack('<BBBBB', 5, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
         # Single shared IN endpoint
-        self.ep_in = ep_num | _EP_IN_FLAG
-        desc.pack('<BBBBHB', 7, 0x05, self.ep_in, 3, 32, 1)
+        self.ep_in = (ep_in := ep_num | _EP_IN_FLAG)
+        desc.pack('<BBBBHB', 7, 0x05, ep_in, 3, 32, 1)
         desc.pack('<BBBBB', 5, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
 
         # if desc.b:
