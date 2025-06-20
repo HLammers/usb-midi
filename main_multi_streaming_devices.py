@@ -25,7 +25,7 @@ class MyMidiMulti(MidiMulti):
 
 time.sleep_ms(1000)
 
-m = MyMidiMulti(num_ports=NUM_PORTS)
+m = MyMidiMulti(num_ports=NUM_PORTS, port_names=["DIN", "USB Host", "Virtual"])
 m.setup_callbacks()
 usb.device.get().init(m, builtin_driver=False, manufacturer_str="TestMaker", product_str="TestMIDI", serial_str="123456",
                     #   device_class=0xEF, device_subclass=0x02, device_protocol=0x01
