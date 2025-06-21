@@ -71,7 +71,7 @@ time.sleep_ms(1000)
 m = MIDIExample(_NUM_PORTS, _PORT_NAMES)
 m.setup_callbacks()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available; manufacturer_str, product_str and serial_str are optional
-usb.device.get().init(m, builtin_driver=False, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
+usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
 ######
                       # device_class=0xEF, device_subclass=0x02, device_protocol=0x01
                       )

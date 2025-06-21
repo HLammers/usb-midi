@@ -30,7 +30,7 @@
 from micropython import schedule
 from usb.device.core import Interface, Buffer
 
-_EP_MIDI_PACKET_SIZE = 64
+_EP_MIDI_PACKET_SIZE = const(64)
 
 class MidiMulti(Interface):
     '''Composite USB MIDI 1.0 device class supporting multiple ports in the form of multiple MIDI Streaming interfaces'''

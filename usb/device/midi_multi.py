@@ -152,12 +152,16 @@ class MidiPortInterface(Interface):
             self.submit_xfer(self.ep_in, _tx_buffer.pend_read(), self._tx_cb)
 
     def _tx_cb(self, ep, res, num_bytes):
+######
+        print('_tx_cb port', self.port_index)
         if res == 0:
             self._tx_buffer.finish_read(num_bytes)
         self._tx_xfer()
 
     def _rx_xfer(self):
         '''Keep an active OUT transfer to receive MIDI events from the host'''
+######
+        print('_rx_xfer port', self.port_index)
         _rx_buffer = self._rx_buffer
 ######
         # if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():

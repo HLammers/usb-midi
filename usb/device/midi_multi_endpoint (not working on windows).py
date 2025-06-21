@@ -30,12 +30,7 @@
 from micropython import schedule
 from usb.device.core import Interface, Buffer
 
-_INTERFACE_CLASS_AUDIO = const(1)
-_INTERFACE_SUBCLASS_AUDIO_CONTROL = const(1)
-_INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING = const(3)
-_JACK_TYPE_EMBEDDED = const(1)
-_EP_IN_FLAG = const(0x80)
-_EP_MIDI_PACKET_SIZE = 64
+_EP_MIDI_PACKET_SIZE = const(64)
 
 class MidiMulti(Interface):
     """
@@ -123,23 +118,23 @@ class MidiMulti(Interface):
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
         # 1. AudioControl interface
-        desc.interface(itf_num, 0, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_CONTROL)
+        desc.interface(itf_num, 0, 1, 1)
         # AC header, points to MIDIStreaming interface
         desc.pack('<BBBHHBB', 9, 0x24, 1, 0x0100, 9, 1, itf_num + 1)
 
         # 2. MIDIStreaming interface
         ms_if_num = itf_num + 1
-        desc.interface(ms_if_num, self.num_in + self.num_out, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING)
+        desc.interface(ms_if_num, self.num_in + self.num_out, 1, 3)
         # -- Class-specific MS header: total length calculation
         cs_len = 7 + (self.num_in * 6) + (self.num_out * 9)
         desc.pack('<BBBHH', 7, 0x24, 1, 0x0100, cs_len)
 
         # -- Embedded IN jacks (for OUT endpoints)
         for i in range(self.num_in):
-            desc.pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE_EMBEDDED, 1 + i, 0)
+            desc.pack('<BBBBBB', 6, 0x24, 2, 1, 1 + i, 0)
         # -- Embedded OUT jacks (for IN endpoints)
         for i in range(self.num_out):
-            desc.pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE_EMBEDDED, 1 + self.num_in + i, 1, 1 + i, 1, 0)
+            desc.pack('<BBBBBBBBB', 9, 0x24, 3, 1, 1 + self.num_in + i, 1, 1 + i, 1, 0)
 
         ep_addr = ep_num
         # -- OUT endpoints (host->device)
@@ -151,7 +146,7 @@ class MidiMulti(Interface):
             ep_addr += 1
         # -- IN endpoints (device->host)
         for i in range(self.num_out):
-            self.ep_in[i] = ep_addr | _EP_IN_FLAG
+            self.ep_in[i] = ep_addr | 0x80
             desc.pack('<BBBBHB', 7, 5, self.ep_in[i], 3, 32, 1)
             # Class-specific endpoint for IN
             desc.pack('<BBBBB', 5, 0x25, 1, 1, 1 + self.num_in + i)  # jack=1+num_in+i

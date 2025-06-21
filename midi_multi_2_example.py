@@ -20,7 +20,7 @@ group_names = ["DIN", "USB Host", "Virtual"]
 m = MyMidi20Multi(num_groups=NUM_GROUPS, group_names=group_names)
 m.setup_callbacks()
 usb.device.get().init(
-    m, builtin_driver=False,
+    m, builtin_driver=True,
     manufacturer_str="TestMaker",
     product_str="TestMIDI2",
     serial_str="123456",
