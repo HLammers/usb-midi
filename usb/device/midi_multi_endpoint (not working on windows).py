@@ -1,6 +1,34 @@
+''' Multi-port USB MIDI 1.0 library for MicroPython based on a multiple endpoints approach
+
+    Multiple MIDI ports set up this way are recognized Linux, but not on Windows (not tested on macOS)
+    Port names are not (yet) implemented
+
+    This library is still in testing phase and further development might introduce breaking changes
+
+    Requires the micropython-lib usb-device library (https://github.com/micropython/micropython-lib/tree/master/micropython/usb) and
+    replaces the micropython-lib usb-device-midi library (which only supports a single port)
+
+    Copyright (c) 2025 Harm Lammers
+    
+    Parts are taken from the micropython-lib usb-device-midi library, copyright (c) 2023 Paul Hamshere, 2023-2024 Angus Gratton, published
+    under MIT licence
+
+    MIT licence:
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to
+    the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
+
 from micropython import schedule
 from usb.device.core import Interface, Buffer
-import time
 
 _INTERFACE_CLASS_AUDIO = const(1)
 _INTERFACE_SUBCLASS_AUDIO_CONTROL = const(1)

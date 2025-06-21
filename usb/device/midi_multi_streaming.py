@@ -174,14 +174,14 @@ class MidiPortInterface(Interface):
 
     def _on_rx(self, _):
         '''Receive MIDI events; called from self._rx_cb via micropython.schedule'''
+        port = self.port_index
         _rx_buffer = self._rx_buffer
         m = _rx_buffer.pend_read()
         i = 0
         while i <= len(m) - 4:
-            cable = m[i] >> 4
             cin = m[i] & 0x0F
             try:
-                self._in_callback(cable, cin, *m[i + 1:i + 4]) # type: ignore
+                self._in_callback(port, cin, *m[i + 1:i + 4]) # type: ignore
             except:
                 pass
             i += 4
