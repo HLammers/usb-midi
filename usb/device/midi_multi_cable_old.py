@@ -1,38 +1,32 @@
-''' Multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual cables approach
-
-    This work for 1 MIDI in port and 1 MIDI out port (i.e. 1 cable per endpoint), but doesn’t work with Windows or Linux (not ntested on
-    on macOS) if the number of in ports and/or the number of out ports is set to more than one
-    Port names are not (yet) implemented
-
-    This library is still in testing phase and further development might introduce breaking changes
-
-    Requires the micropython-lib usb-device library (https://github.com/micropython/micropython-lib/tree/master/micropython/usb) and
-    replaces the micropython-lib usb-device-midi library (which only supports a single port)
-
-    Copyright (c) 2025 Harm Lammers
-    
-    Parts are taken from the micropython-lib usb-device-midi library, copyright (c) 2023 Paul Hamshere, 2023-2024 Angus Gratton, published
-    under MIT licence
-
-    MIT licence:
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
-
 from micropython import schedule
 from usb.device.core import Interface, Buffer
 
-_EP_MIDI_PACKET_SIZE = const(64)
+_EP_MIDI_PACKET_SIZE = 64  # Larger buffer for higher bandwidth
+
 _MAX_CABLES = const(16)  # USB MIDI 1.0: up to 16 cables per endpoint
+
+# MIDI Status bytes. For Channel messages these are only the upper 4 bits, ORed with the channel number.
+# As per https://www.midi.org/specifications-old/item/table-1-summary-of-midi-message
+_MIDI_NOTE_OFF = const(0x80)
+_MIDI_NOTE_ON = const(0x90)
+_MIDI_POLY_KEYPRESS = const(0xA0)
+_MIDI_CONTROL_CHANGE = const(0xB0)
+
+# USB-MIDI CINs (Code Index Numbers), as per USB MIDI Table 4-1
+_CIN_SYS_COMMON_2BYTE = const(0x2)
+_CIN_SYS_COMMON_3BYTE = const(0x3)
+_CIN_SYSEX_START = const(0x4)
+_CIN_SYSEX_END_1BYTE = const(0x5)
+_CIN_SYSEX_END_2BYTE = const(0x6)
+_CIN_SYSEX_END_3BYTE = const(0x7)
+_CIN_NOTE_OFF = const(0x8)
+_CIN_NOTE_ON = const(0x9)
+_CIN_POLY_KEYPRESS = const(0xA)
+_CIN_CONTROL_CHANGE = const(0xB)
+_CIN_PROGRAM_CHANGE = const(0xC)
+_CIN_CHANNEL_PRESSURE = const(0xD)
+_CIN_PITCH_BEND = const(0xE)
+_CIN_SINGLE_BYTE = const(0xF)  # Not currently supported
 
 class MidiMulti(Interface):
     '''USB MIDI 1.0 device class supporting up to 16 ports in the form of virtual MIDI in and out cables'''
@@ -58,14 +52,14 @@ class MidiMulti(Interface):
 
     # Helper functions for sending common MIDI messages
 
-    def note_on(self, cable, channel, note, vel=0x40):
-        self.send_event(cable, 0x9, 0x90 | channel, note, vel)
+    def note_on(self, cable, channel, pitch, vel=0x40):
+        self.send_event(cable, _CIN_NOTE_ON, _MIDI_NOTE_ON | channel, pitch, vel)
 
-    def note_off(self, cable, channel, note, vel=0x40):
-        self.send_event(cable, 0x8, 0x80 | channel | channel, note, vel)
+    def note_off(self, cable, channel, pitch, vel=0x40):
+        self.send_event(cable, _CIN_NOTE_OFF, _MIDI_NOTE_OFF | channel, pitch, vel)
 
     def control_change(self, cable, channel, controller, value):
-        self.send_event(cable, 0xB, 0xB0 | channel, controller, value)
+        self.send_event(cable, _CIN_CONTROL_CHANGE, _MIDI_CONTROL_CHANGE | channel, controller, value)
 
     def send_event(self, cable, cin, data_0, data_1=0, data_2=0):
         '''Queue a MIDI Event Packet to be sent to the host; takes a cable number (port), a USB-MIDI Code Index Number (CIN) and up to three MIDI data bytes; returns False if failed due to the TX buffer being full'''
@@ -83,7 +77,6 @@ class MidiMulti(Interface):
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
         # Interface Association Descriptor (TEST: try with and without IAD)
-######
         # desc.interface_assoc(itf_num, 2, 0x01, 0x01, 0x00)
         # Audio Control interface
         desc.interface(itf_num, 0, 0x01, 0x01)
@@ -101,12 +94,12 @@ class MidiMulti(Interface):
         for i in range(num_out):
             desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, 0x01, 1 + num_in + i, 0x01, 1 + i, 1, 0x00)
         # External OUT jacks for each virtual IN cable
-######
-        for i in range(num_out): #  (TEST: try with and without external jacks)
+###### try with and without external OUT jacks
+        for i in range(num_out):
             desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, 0x02, 1 + num_in + num_out + i, 0x01, 1 + i, 1, 0x00)
         # External IN jacks for each virtual OUT cable
-######
-        for i in range(num_in): #  (TEST: try with and without external jacks)
+###### try with and without external IN jacks
+        for i in range(num_in):
             desc.pack('<BBBBBB', 6, 0x24, 0x02, 0x02, 1 + num_in + 2 * num_out + i, 0x00)
         # Single shared OUT endpoint
         self.ep_out = ep_num
@@ -116,6 +109,13 @@ class MidiMulti(Interface):
         self.ep_in = (ep_in := ep_num | 0x80)
         desc.pack('<BBBBHB', 7, 0x05, ep_in, 3, 32, 1)
         desc.pack('<BBBBB', 5, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
+
+        # if desc.b:
+        #     print("Config descriptor header:", list(desc.b[:9]))
+        #     print("Descriptor length:", desc.o)
+        #     print("Descriptor hex:", desc.b[:desc.o].hex())
+        #     print("Descriptor bytes:", list(desc.b[:desc.o]))
+        #     time.sleep_ms(1000)
 
     def _tx_xfer(self):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
@@ -133,7 +133,6 @@ class MidiMulti(Interface):
     def _rx_xfer(self):
         '''Keep an active OUT transfer to receive MIDI events from the host'''
         _rx_buffer = self._rx_buffer
-######
         # if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():
         #     self.submit_xfer(ep_out, _rx_buffer.pend_write(), self._rx_cb)
         if self.is_open() and not self.xfer_pending(self.ep_out) and _rx_buffer.writable():

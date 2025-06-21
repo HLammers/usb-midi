@@ -41,12 +41,12 @@ class MIDIExample(MIDIInterface):
     def on_control_change(self, channel, controller, value):
         print(f"RX Control channel {channel} controller {controller} value {value}")
 
-# Delay to allow the REPL in VSCode to connect
+# For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
 
 m = MIDIExample()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
-usb.device.get().init(m, builtin_driver=True, manufacturer_str="Harm Lammers", product_str="My Multiport MIDI")
+usb.device.get().init(m, builtin_driver=True)
 
 print("Waiting for USB host to configure the interface...")
 

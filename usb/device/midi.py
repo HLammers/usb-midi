@@ -1,7 +1,7 @@
 # MicroPython USB MIDI module
 # MIT license; Copyright (c) 2023 Paul Hamshere, 2023-2024 Angus Gratton
 from micropython import const, schedule
-import time
+import struct
 
 from .core import Interface, Buffer
 
@@ -240,13 +240,6 @@ class MIDIInterface(Interface):
 
         # tx side, USB "out" endpoint and embedded MIDI OUT jacks
         _audio_endpoint(desc, self.ep_out, _EMB_IN_JACK_ID)
-
-        if desc.b:
-            print("Config descriptor header:", list(desc.b[:9]))
-            print("Descriptor length:", desc.o)
-            print("Descriptor hex:", desc.b[:desc.o].hex())
-            print("Descriptor bytes:", list(desc.b[:desc.o]))
-            time.sleep_ms(1000)
 
     def num_itfs(self):
         return 2

@@ -1,4 +1,4 @@
-''' Example for multi-port USB MIDI 1.0 library for MicroPython based on a multiple streaming interface approach
+''' Example for multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual cables approach
 
     This example demonstrates creating a custom MIDI device with 3 ports
 
@@ -33,16 +33,16 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
 import usb.device
-from usb.device.midi_multi_streaming import MidiMulti
+from usb.device.midi_multi_cable import MidiMulti
 import time
 
-_NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports
-_PORT_NAMES   = ('DIN', 'USB Host', 'Virtual')
+_NUM_IN       = const(3) # Set up 3 MIDI in ports
+_NUM_OUT      = const(2) # and 2 MIDI out ports
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
 
-class MIDIExample(MidiMulti):
+class MidiExample(MidiMulti):
 
     def on_open(self):
         super().on_open()
@@ -50,30 +50,33 @@ class MIDIExample(MidiMulti):
 
     def setup_callbacks(self):
         '''Assign callback functions to each MIDI port'''
-        for i in range(self.num_ports):
+        for i in range(self.num_in):
             self.set_in_callback(i, self._print_midi_in)
 
-    def _print_midi_in(self, port, cin, byte_0, byte_1, byte_2):
+    def _print_midi_in(self, cable, cin, byte_0, byte_1, byte_2):
         '''Example callback function which is called each time a MIDI message is received'''
         command = byte_0 & 0xF0
         channel = byte_0 & 0x0F
         if command == 0x90 and byte_2 != 0: # Note On
-            print(f'RX Note On on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
-        elif command == 0x80 or (command == 0x90 and byte_2 == 0): # Note Off
-            print(f'RX Note Off on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
-        elif command == 0xB0: # Control Change
-            print(f'RX CC on port {port}: channel {channel} ctrl {byte_1} value {byte_2}')
+            print(f'RX Note On on port {cable}: channel {channel} note {byte_1} velocity {byte_2}')
+        elif command == 0x80 or (command == 0x90 and byte_2 == 0):  # Note Off
+            print(f'RX Note Off on port {cable}: channel {channel} note {byte_1} velocity {byte_2}')
+        elif command == 0xB0:  # Control Change
+            print(f'RX CC on port {cable}: channel {channel} ctrl {byte_1} value {byte_2}')
         else:
-            print(f'RX MIDI message on port {port}: {byte_0}, {byte_1}, {byte_2}')
+            print(f'RX MIDI message on port {cable}: {byte_0}, {byte_1}, {byte_2}')
 
 # For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
-m = MIDIExample(_NUM_PORTS, _PORT_NAMES)
+m = MidiExample(_NUM_IN, _NUM_OUT)
 m.setup_callbacks()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available; manufacturer_str, product_str and serial_str are optional
 usb.device.get().init(m, builtin_driver=False, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
 ######
                       # device_class=0xEF, device_subclass=0x02, device_protocol=0x01
+###### for testing pursposes only
+                      # id_vendor=0x0582, # Roland VID
+                      # id_product=0x0006 # Roland UM-1 PID
                       )
 print('Waiting for USB host to configure the interface...')
 while not m.is_open():
@@ -84,8 +87,7 @@ _NOTE = const(60)
 _CONTROLLER = const(64)
 control_val = 0
 while m.is_open():
-    for port in range(_NUM_PORTS):
-        time.sleep(1)
+    for port in range(_NUM_OUT):
         print(f'TX Note On on port {port}: channel {_CHANNEL} note {_NOTE}')
         m.note_on(port, _CHANNEL, _NOTE) # Velocity is an optional third argument
         time.sleep(0.5)
@@ -96,4 +98,4 @@ while m.is_open():
         m.control_change(port, _CHANNEL, _CONTROLLER, control_val)
         control_val = (control_val + 1) & 0x7F
         time.sleep(1)
-print('USB host has reset device, example done')
+print('USB host has reset device, example done.')
