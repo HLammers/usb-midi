@@ -73,7 +73,7 @@ m.setup_callbacks()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available; manufacturer_str, product_str and serial_str are optional
 usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
 ######
-                      # device_class=0xEF, device_subclass=0x02, device_protocol=0x01
+                      # device_class=0xEF, device_subclass=2, device_protocol=1
 ###### for testing pursposes only
                       # id_vendor=0x0582, # Roland VID
                       # id_product=0x0006 # Roland UM-1 PID

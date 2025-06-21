@@ -63,9 +63,10 @@ class MidiMulti(Interface):
         return self.ports[port].send_event(cin, data_0, data_1, data_2)
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
-        # Audio Control interface (TEST: try with and without IAD)
+        # Interface Association Descriptor (TEST: try with and without IAD)
 ######
-        # self.ac.desc_cfg(desc, itf_num, ep_num, strs)
+        desc.interface_assoc(itf_num, 2, 1, 1, 0)
+        # Audio Control interface
         desc.interface(itf_num, 0, 1, 1)
         # Class-specific Audio Control header, points to all MIDI Streaming interfaces following
         bLength = 8 + (num_ports := self.num_ports)

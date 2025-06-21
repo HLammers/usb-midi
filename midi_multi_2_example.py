@@ -24,7 +24,7 @@ usb.device.get().init(
     manufacturer_str="TestMaker",
     product_str="TestMIDI2",
     serial_str="123456",
-    device_class=0xEF, device_subclass=0x02, device_protocol=0x01
+    device_class=0xEF, device_subclass=2, device_protocol=1
 )
 
 print('Waiting for USB host to configure the interface...')
