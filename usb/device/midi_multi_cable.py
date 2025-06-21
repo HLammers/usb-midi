@@ -84,38 +84,64 @@ class MidiMulti(Interface):
     def desc_cfg(self, desc, itf_num, ep_num, strs):
         # Interface Association Descriptor (TEST: try with and without IAD)
 ######
-        # desc.interface_assoc(itf_num, 2, 0x01, 0x01, 0x00)
+        # desc.interface_assoc(itf_num, 2, 1, 1, 0)
         # Audio Control interface
-        desc.interface(itf_num, 0, 0x01, 0x01)
-        desc.pack('<BBBHHBB', 9, 0x24, 0x01, 0x0100, 0x0009, 0x01, itf_num + 1)
+        desc.interface(itf_num, 0, 1, 1)
+        desc.pack('<BBBHHBB', 9, 0x24, 1, 0x0100, 0x0009, 1, itf_num + 1)
         # MIDI Streaming interface
         ms_if_num = itf_num + 1
-        desc.interface(ms_if_num, 2, 0x01, 0x03)
+        desc.interface(ms_if_num, 2, 1, 3)
         # Class-specific MIDI Streaming interface header
         total_class_specific_len = 7 + (num_in := self.num_in) * 6 + (num_out := self.num_out) * 9 + num_out * 6 + num_in * 9
-        desc.pack('<BBBHH', 7, 0x24, 0x01, 0x0100, total_class_specific_len)
-        # Embedded IN jacks for each virtual IN cable
-        for i in range(num_in):
-            desc.pack('<BBBBBB', 6, 0x24, 0x02, 0x01, 1 + i, 0x00)
-        # Embedded OUT jacks for each virtual OUT cable
-        for i in range(num_out):
-            desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, 0x01, 1 + num_in + i, 0x01, 1 + i, 1, 0x00)
-        # External OUT jacks for each virtual IN cable
+        desc.pack('<BBBHH', 7, 0x24, 1, 0x0100, total_class_specific_len)
 ######
-        for i in range(num_out): #  (TEST: try with and without external jacks)
-            desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, 0x02, 1 + num_in + num_out + i, 0x01, 1 + i, 1, 0x00)
-        # External IN jacks for each virtual OUT cable
-######
-        for i in range(num_in): #  (TEST: try with and without external jacks)
-            desc.pack('<BBBBBB', 6, 0x24, 0x02, 0x02, 1 + num_in + 2 * num_out + i, 0x00)
-        # Single shared OUT endpoint
+        # # Embedded in jacks for each virtual in cable
+        # for i in range(num_in):
+        #     desc.pack('<BBBBBB', 6, 0x24, 2, 1, 1 + i, 0)
+        # # Embedded out jacks for each virtual out cable
+        # for i in range(num_out):
+        #     desc.pack('<BBBBBBBBB', 9, 0x24, 3, 1, 1 + num_in + i, 1, 1 + i, 1, 0)
+        # # External out jacks for each virtual in cable
+        # for i in range(num_out): #  (TEST: try with and without external jacks)
+        #     desc.pack('<BBBBBBBBB', 9, 0x24, 3, 2, 1 + num_in + num_out + i, 1, 1 + i, 1, 0)
+        # # External in jacks for each virtual out cable
+        # for i in range(num_in): #  (TEST: try with and without external jacks)
+        #     desc.pack('<BBBBBB', 6, 0x24, 2, 2, 1 + num_in + 2 * num_out + i, 0)
+        # In jacks for each virtual in cable and out jacks for each virtual out cable
+        jack_in_ids = []
+        jack_out_ids = []
+        jack_id = 1
+        for i in range(max(num_in, num_out)):
+            # Embedded in jacks for each virtual in cable
+            if i < num_in:
+                desc.pack('<BBBBBB', 6, 0x24, 2, 1, (jack_in_id := jack_id), 0)
+                jack_in_ids.append(jack_id)
+                jack_id += 1
+            # Embedded out jacks for each virtual out cable
+            if i < num_out:
+                desc.pack('<BBBBBBBBB', 9, 0x24, 3, 1, jack_id, 1, jack_in_id, 1, 0)
+                jack_out_ids.append(jack_id)
+                jack_id += 1
+            # External out jacks for each virtual in cable (TEST: try with and without external jacks)
+            if i < num_in and i < num_out:
+                desc.pack('<BBBBBBBBB', 9, 0x24, 3, 2, jack_id, 1, jack_in_id + i, 1, 0)
+                jack_id += 1
+            # External in jacks for each virtual out cable (TEST: try with and without external jacks)
+            if i < num_in:
+                desc.pack('<BBBBBB', 6, 0x24, 2, 2, 1 + jack_id, 0)
+                jack_id += 1
+        # Single shared out endpoint
         self.ep_out = ep_num
-        desc.pack('<BBBBHB', 7, 0x05, ep_num, 3, 32, 1)
-        desc.pack('<BBBBB', 5, 0x25, 0x01, num_in, *[1 + i for i in range(num_in)])
-        # Single shared IN endpoint
+        desc.pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1)
+######
+        # desc.pack('<BBBBB', 5, 0x25, 1, num_in, *[1 + i for i in range(num_in)])
+        desc.pack('<BBBBB', 5, 0x25, 1, num_in, *jack_in_ids)
+        # Single shared in endpoint
         self.ep_in = (ep_in := ep_num | 0x80)
-        desc.pack('<BBBBHB', 7, 0x05, ep_in, 3, 32, 1)
-        desc.pack('<BBBBB', 5, 0x25, 0x01, num_out, *[1 + num_in + i for i in range(num_out)])
+        desc.pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1)
+######
+        # desc.pack('<BBBBB', 5, 0x25, 1, num_out, *[1 + num_in + i for i in range(num_out)])
+        desc.pack('<BBBBB', 5, 0x25, 1, num_out, *jack_out_ids)
 
     def _tx_xfer(self):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''

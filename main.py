@@ -33,7 +33,7 @@
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
 import usb.device
-from usb.device.midi_multi_streaming import MidiMulti
+from usb.device.midi_multi import MidiMulti
 import time
 
 _NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports

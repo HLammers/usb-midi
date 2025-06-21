@@ -66,11 +66,11 @@ class MidiMulti(Interface):
         # Audio Control interface (TEST: try with and without IAD)
 ######
         # self.ac.desc_cfg(desc, itf_num, ep_num, strs)
-        desc.interface(itf_num, 0, 0x01, 0x01)
+        desc.interface(itf_num, 0, 1, 1)
         # Class-specific Audio Control header, points to all MIDI Streaming interfaces following
         bLength = 8 + (num_ports := self.num_ports)
         ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + num_ports))
-        desc.pack('<BBBHHB' + 'B' * num_ports, bLength, 0x24, 0x01, 0x0100, bLength, num_ports, *ms_interface_numbers)
+        desc.pack('<BBBHHB' + 'B' * num_ports, bLength, 0x24, 1, 0x0100, bLength, num_ports, *ms_interface_numbers)
         next_itf = itf_num + 1
         next_ep = ep_num
         for port in self.ports:
@@ -97,13 +97,13 @@ class MidiMulti(Interface):
 #         self.parent = parent
 
 #     def desc_cfg(self, desc, itf_num, ep_num, strs):
-#         desc.interface(itf_num, 0, 0x01, 0x01)
+#         desc.interface(itf_num, 0, 1, 1)
 #         # Class-specific AC header, points to all MIDIStreaming interfaces following
 #         n_ports = self.parent.num_ports
 #         bLength = 8 + n_ports
 #         ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + n_ports))
 #         desc.pack('<BBBHHB' + 'B'*n_ports,
-#                   bLength, 0x24, 0x01, 0x0100, bLength, n_ports, *ms_interface_numbers)        # No terminals
+#                   bLength, 0x24, 1, 0x0100, bLength, n_ports, *ms_interface_numbers)        # No terminals
 
 #     def num_itfs(self):
 #         return 1
@@ -193,22 +193,24 @@ class MidiPortInterface(Interface):
             strs.append(self.port_name)
         else:
             iInterface = 0
+        jack_in_id = 1 + 2 * self.port_index
+        Jack_out_id = jack_in_id + 1
         # MIDI Streaming interface
-        desc.interface(itf_num, 2, 0x01, 0x03, 0, iInterface)
+        desc.interface(itf_num, 2, 1, 3, 0, iInterface)
         # Class-specific MIDI Streaming header
-        desc.pack('<BBBHH', 7, 0x24, 0x01, 0x0100, 25)
-        # Embedded IN Jack
-        desc.pack('<BBBBBB', 6, 0x24, 0x02, 0x01, 1, 0)
-        # Embedded OUT Jack
-        desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, 0x01, 2, 1, 1, 1, 0)
-        # OUT endpoint
+        desc.pack('<BBBHH', 7, 0x24, 1, 0x0100, 25)
+        # Embedded in Jack
+        desc.pack('<BBBBBB', 6, 0x24, 2, 1, jack_in_id, 0)
+        # Embedded out Jack
+        desc.pack('<BBBBBBBBB', 9, 0x24, 3, 1, Jack_out_id, 1, jack_in_id, 1, 0)
+        # Out endpoint
         self.ep_out = ep_num
-        desc.pack('<BBBBHB', 7, 0x05, self.ep_out, 3, 32, 1)
-        desc.pack('<BBBBB', 5, 0x25, 0x01, 1, 1)
-        # IN endpoint
+        desc.pack('<BBBBHB', 7, 5, self.ep_out, 3, 32, 1)
+        desc.pack('<BBBBB', 5, 0x25, 1, 1, jack_in_id)
+        # In endpoint
         self.ep_in = ep_num | 0x80
-        desc.pack('<BBBBHB', 7, 0x05, self.ep_in, 3, 32, 1)
-        desc.pack('<BBBBB', 5, 0x25, 0x01, 1, 2)
+        desc.pack('<BBBBHB', 7, 5, self.ep_in, 3, 32, 1)
+        desc.pack('<BBBBB', 5, 0x25, 1, 1, Jack_out_id)
 
     def num_itfs(self):
         return 1

@@ -2,10 +2,10 @@ from micropython import schedule
 from usb.device.core import Interface, Buffer
 import time
 
-_INTERFACE_CLASS_AUDIO = const(0x01)
-_INTERFACE_SUBCLASS_AUDIO_CONTROL = const(0x01)
-_INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING = const(0x03)
-_JACK_TYPE_EMBEDDED = const(0x01)
+_INTERFACE_CLASS_AUDIO = const(1)
+_INTERFACE_SUBCLASS_AUDIO_CONTROL = const(1)
+_INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING = const(3)
+_JACK_TYPE_EMBEDDED = const(1)
 _EP_IN_FLAG = const(0x80)
 _EP_MIDI_PACKET_SIZE = 64
 
@@ -97,36 +97,36 @@ class MidiMulti(Interface):
         # 1. AudioControl interface
         desc.interface(itf_num, 0, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_CONTROL)
         # AC header, points to MIDIStreaming interface
-        desc.pack('<BBBHHBB', 9, 0x24, 0x01, 0x0100, 9, 1, itf_num + 1)
+        desc.pack('<BBBHHBB', 9, 0x24, 1, 0x0100, 9, 1, itf_num + 1)
 
         # 2. MIDIStreaming interface
         ms_if_num = itf_num + 1
         desc.interface(ms_if_num, self.num_in + self.num_out, _INTERFACE_CLASS_AUDIO, _INTERFACE_SUBCLASS_AUDIO_MIDISTREAMING)
         # -- Class-specific MS header: total length calculation
         cs_len = 7 + (self.num_in * 6) + (self.num_out * 9)
-        desc.pack('<BBBHH', 7, 0x24, 0x01, 0x0100, cs_len)
+        desc.pack('<BBBHH', 7, 0x24, 1, 0x0100, cs_len)
 
         # -- Embedded IN jacks (for OUT endpoints)
         for i in range(self.num_in):
-            desc.pack('<BBBBBB', 6, 0x24, 0x02, _JACK_TYPE_EMBEDDED, 1 + i, 0x00)
+            desc.pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE_EMBEDDED, 1 + i, 0)
         # -- Embedded OUT jacks (for IN endpoints)
         for i in range(self.num_out):
-            desc.pack('<BBBBBBBBB', 9, 0x24, 0x03, _JACK_TYPE_EMBEDDED, 1 + self.num_in + i, 0x01, 1 + i, 1, 0x00)
+            desc.pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE_EMBEDDED, 1 + self.num_in + i, 1, 1 + i, 1, 0)
 
         ep_addr = ep_num
         # -- OUT endpoints (host->device)
         for i in range(self.num_in):
             self.ep_out[i] = ep_addr
-            desc.pack('<BBBBHB', 7, 0x05, ep_addr, 3, 32, 1)
+            desc.pack('<BBBBHB', 7, 5, ep_addr, 3, 32, 1)
             # Class-specific endpoint for OUT
-            desc.pack('<BBBBB', 5, 0x25, 0x01, 1, 1 + i)  # jack=1+i
+            desc.pack('<BBBBB', 5, 0x25, 1, 1, 1 + i)  # jack=1+i
             ep_addr += 1
         # -- IN endpoints (device->host)
         for i in range(self.num_out):
             self.ep_in[i] = ep_addr | _EP_IN_FLAG
-            desc.pack('<BBBBHB', 7, 0x05, self.ep_in[i], 3, 32, 1)
+            desc.pack('<BBBBHB', 7, 5, self.ep_in[i], 3, 32, 1)
             # Class-specific endpoint for IN
-            desc.pack('<BBBBB', 5, 0x25, 0x01, 1, 1 + self.num_in + i)  # jack=1+num_in+i
+            desc.pack('<BBBBB', 5, 0x25, 1, 1, 1 + self.num_in + i)  # jack=1+num_in+i
             ep_addr += 1
 
     def num_itfs(self):
