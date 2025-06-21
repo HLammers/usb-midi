@@ -37,7 +37,7 @@ from usb.device.midi_multi_streaming import MidiMulti
 import time
 
 _NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports
-_PORT_NAMES   = ('DIN', 'USB Host', 'Virtual')
+_PORT_NAMES   = ('A', 'B', 'C')
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
