@@ -144,6 +144,8 @@ class MidiPortInterface(Interface):
         return True
 
     def _tx_xfer(self):
+######
+        log(f'_tx_xfer port {self.port_index}')
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
         _tx_buffer = self._tx_buffer
         # if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _tx_buffer.readable():
@@ -153,15 +155,13 @@ class MidiPortInterface(Interface):
 
     def _tx_cb(self, ep, res, num_bytes):
 ######
-        print('_tx_cb port', self.port_index)
+        log(f'_tx_cb port {self.port_index}')
         if res == 0:
             self._tx_buffer.finish_read(num_bytes)
         self._tx_xfer()
 
     def _rx_xfer(self):
         '''Keep an active OUT transfer to receive MIDI events from the host'''
-######
-        print('_rx_xfer port', self.port_index)
         _rx_buffer = self._rx_buffer
 ######
         # if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():
@@ -227,3 +227,7 @@ class MidiPortInterface(Interface):
         # Kick off any transfers that may have queued while the device was not open
         self._tx_xfer()
         self._rx_xfer()
+
+def log(msg):
+    with open('/log.txt', 'a') as f:
+        f.write(msg + '\n')

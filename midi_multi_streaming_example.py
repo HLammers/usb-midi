@@ -46,7 +46,7 @@ class MIDIExample(MidiMulti):
 
     def on_open(self):
         super().on_open()
-        print('Device opened by host')
+        log('Device opened by host')
 
     def setup_callbacks(self):
         '''Assign callback functions to each MIDI port'''
@@ -58,15 +58,18 @@ class MIDIExample(MidiMulti):
         command = byte_0 & 0xF0
         channel = byte_0 & 0x0F
         if command == 0x90 and byte_2 != 0: # Note On
-            print(f'RX Note On on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
+            log(f'RX Note On on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
         elif command == 0x80 or (command == 0x90 and byte_2 == 0): # Note Off
-            print(f'RX Note Off on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
+            log(f'RX Note Off on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
         elif command == 0xB0: # Control Change
-            print(f'RX CC on port {port}: channel {channel} ctrl {byte_1} value {byte_2}')
+            log(f'RX CC on port {port}: channel {channel} ctrl {byte_1} value {byte_2}')
         else:
-            print(f'RX MIDI message on port {port}: {byte_0}, {byte_1}, {byte_2}')
+            log(f'RX MIDI message on port {port}: {byte_0}, {byte_1}, {byte_2}')
 
-# For when using VSCode: delay to allow the REPL to connect before main.py is ran
+def log(msg):
+    with open('/log.txt', 'a') as f:
+        f.write(msg + '\n')# For when using VSCode: delay to allow the REPL to connect before main.py is ran
+
 time.sleep_ms(1000)
 m = MIDIExample(_NUM_PORTS, _PORT_NAMES)
 m.setup_callbacks()
@@ -75,10 +78,10 @@ usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, pr
 ######
                       # device_class=0xEF, device_subclass=0x02, device_protocol=0x01
                       )
-print('Waiting for USB host to configure the interface...')
+log('Waiting for USB host to configure the interface...')
 while not m.is_open():
     time.sleep_ms(100)
-print('Starting MIDI loop...')
+log('Starting MIDI loop...')
 _CHANNEL = const(0)
 _NOTE = const(60)
 _CONTROLLER = const(64)
@@ -86,14 +89,14 @@ control_val = 0
 while m.is_open():
     for port in range(_NUM_PORTS):
         time.sleep(1)
-        print(f'TX Note On on port {port}: channel {_CHANNEL} note {_NOTE}')
+        log(f'TX Note On on port {port}: channel {_CHANNEL} note {_NOTE}')
         m.note_on(port, _CHANNEL, _NOTE) # Velocity is an optional third argument
         time.sleep(0.5)
-        print(f'TX Note Off on port {port}: channel {_CHANNEL} note {_NOTE}')
+        log(f'TX Note Off on port {port}: channel {_CHANNEL} note {_NOTE}')
         m.note_off(port, _CHANNEL, _NOTE)
         time.sleep(1)
-        print(f'TX CC on port {port}: channel {_CHANNEL} ctrl {_CONTROLLER} value {control_val}')
+        log(f'TX CC on port {port}: channel {_CHANNEL} ctrl {_CONTROLLER} value {control_val}')
         m.control_change(port, _CHANNEL, _CONTROLLER, control_val)
         control_val = (control_val + 1) & 0x7F
         time.sleep(1)
-print('USB host has reset device, example done')
+log('USB host has reset device, example done')
