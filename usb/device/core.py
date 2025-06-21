@@ -167,8 +167,11 @@ class _Device:
         # Keep track of the interface and endpoint indexes
         itf_num = builtin_driver.itf_max
         ep_num = max(builtin_driver.ep_max, 1)  # Endpoint 0 always reserved for control
-        while len(strs) < builtin_driver.str_max:
+######
+        # while len(strs) < builtin_driver.str_max:
+        while len(strs) < builtin_driver.str_max - 1:
             strs.append(None)  # Reserve other string indexes used by builtin drivers
+
         initial_cfg = builtin_driver.desc_cfg or (b"\x00" * _STD_DESC_CONFIG_LEN)
 
         self._itfs = {}

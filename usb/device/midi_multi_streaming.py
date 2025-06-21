@@ -193,15 +193,11 @@ class MidiPortInterface(Interface):
         _rx_buffer.finish_read(i)
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
-######
-        # if self.port_name is not None:
-        #     iInterface = len(strs)
-        #     strs.append(self.port_name)
-        # else:
-        #     iInterface = 0
-        port_name = self.port_name or f'P{self.port_index + 1}'
-        iInterface = len(strs)
-        strs.append(port_name)
+        if self.port_name is not None:
+            iInterface = len(strs)
+            strs.append(self.port_name)
+        else:
+            iInterface = 0
         jack_in_id = 1 + 2 * self.port_index
         Jack_out_id = jack_in_id + 1
         # MIDI Streaming interface
