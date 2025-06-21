@@ -52,7 +52,7 @@ class MidiMulti(Interface):
         self.ports[port].send_event(0x9, 0x90 | channel, pitch, vel)
 
     def note_off(self, port, channel, pitch, vel=0x40):
-        self.send_event(0x8, 0x80 | channel, pitch, vel)
+        self.ports[port].send_event(0x8, 0x80 | channel, pitch, vel)
 
     def control_change(self, port, channel, controller, value):
         self.ports[port].send_event(0xB, 0xB0 | channel, controller, value)
@@ -144,8 +144,6 @@ class MidiPortInterface(Interface):
         return True
 
     def _tx_xfer(self):
-######
-        log(f'_tx_xfer port {self.port_index}')
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
         _tx_buffer = self._tx_buffer
         # if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _tx_buffer.readable():
@@ -154,8 +152,6 @@ class MidiPortInterface(Interface):
             self.submit_xfer(self.ep_in, _tx_buffer.pend_read(), self._tx_cb)
 
     def _tx_cb(self, ep, res, num_bytes):
-######
-        log(f'_tx_cb port {self.port_index}')
         if res == 0:
             self._tx_buffer.finish_read(num_bytes)
         self._tx_xfer()
@@ -227,7 +223,3 @@ class MidiPortInterface(Interface):
         # Kick off any transfers that may have queued while the device was not open
         self._tx_xfer()
         self._rx_xfer()
-
-def log(msg):
-    with open('/log.txt', 'a') as f:
-        f.write(msg + '\n')
