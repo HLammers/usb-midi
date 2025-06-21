@@ -134,7 +134,8 @@ class MidiPortInterface(Interface):
         w = _tx_buffer.pend_write()
         if len(w) < 4:
             return False
-        w[0] = cin
+######
+        w[0] = (0 << 4) | cin
         w[1] = data_0
         w[2] = data_1
         w[3] = data_2
