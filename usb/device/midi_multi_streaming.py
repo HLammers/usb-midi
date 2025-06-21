@@ -69,12 +69,16 @@ class MidiMulti(Interface):
         # Audio Control interface
         desc.interface(itf_num, 0, 1, 1)
         # Class-specific Audio Control header, points to all MIDI Streaming interfaces following
-        bLength = 8 + (num_ports := self.num_ports)
-        ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + num_ports))
-        desc.pack('<BBBHHB' + 'B' * num_ports, bLength, 0x24, 1, 0x0100, bLength, num_ports, *ms_interface_numbers)
+        # bLength = 8 + (num_ports := self.num_ports)
+        bLength = 8 + self.num_ports
+        # ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + num_ports))
+        ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + self.num_ports))
+        # desc.pack('<BBBHHB' + 'B' * num_ports, bLength, 0x24, 1, 0x0100, bLength, num_ports, *ms_interface_numbers)
+        desc.pack('<BBBHHB' + 'B' * self.num_ports, bLength, 0x24, 1, 0x0100, bLength, self.num_ports, *ms_interface_numbers)
         next_itf = itf_num + 1
         next_ep = ep_num
-        for port in self.ports:
+        # for port in self.ports:
+        for i, port in enumerate(self.ports):
             port.desc_cfg(desc, next_itf, next_ep, strs)
             next_itf += port.num_itfs()
             next_ep += port.num_eps()
