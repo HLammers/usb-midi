@@ -1,4 +1,4 @@
-''' Example for multi-port USB MIDI 1.0 library for MicroPython based on a multiple streaming interface approach
+''' Example for multi-port USB MIDI 1.0 library for MicroPython based on a multiple MIDI Streaming interface approach
 
     This example demonstrates creating a custom MIDI device with 3 ports
 
@@ -37,7 +37,8 @@ from usb.device.midi_multi_streaming import MidiMulti
 import time
 
 _NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports
-_PORT_NAMES   = ('DIN', 'USB Host', 'Virtual') # Port names need to be longer than one character
+_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character (?)
+_OUT_PORT_NAMES = ('OUT A', 'OUT B', 'OUT C') # Port names need to be longer than one character (?)
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
@@ -68,7 +69,7 @@ class MIDIExample(MidiMulti):
 
 # For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
-m = MIDIExample(_NUM_PORTS, _PORT_NAMES)
+m = MIDIExample(_NUM_PORTS, _IN_PORT_NAMES, _OUT_PORT_NAMES)
 m.setup_callbacks()
 # Remove builtin_driver=True or set it to False if you don’t want the MicroPython serial REPL available; manufacturer_str, product_str and
 # serial_str are optional (builtin_driver=True doesn’t work with Windows)

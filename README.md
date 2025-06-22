@@ -28,3 +28,11 @@ There is one more approach to naming individual ports: switching from USB MIDI 1
 # Next Step
 
 So far I&rsquo;ve demonstrated that multi-port USB MIDI works (be it without naming those ports). My next step is to integrate this with the UART/PIO MIDI drivers as built into [Cybo-Drummer](https://github.com/HLammers/cybo-drummer), because that&rsquo;s what I&rsquo;m doing all this work for.
+
+# Embedded vs external jacks
+
+Embedded jacks (bJackType=0x01) represent &lsquo;virtual&rsquo; ports inside the device (e.g. software synth); external jacks (bJackType=0x02) represent physical connectors on the device (DIN, TRS, etc.). The USB MIDI specification do not require both &ndash; a device can have only embedded, only external, or both.
+
+The advice to always add both embedded and external jacks comes from a bug in early versions of iOS, which only worked if both were provided. This has long been resolved (apparently since iOS 7, released in 2023), so that is no longer relevant.
+
+To be fully compliant with the USB MIDI specifications it would be best to use external jacks for ports which map to MIDI DIN/TRS connectors and embedded for all other cases, although functionally it doesn&rsquo;t matter which one is used. Eventually I will make it possible to specify embedded/external for each port.

@@ -36,8 +36,11 @@ import usb.device
 from usb.device.midi_multi_cable import MidiMulti
 import time
 
-_NUM_IN       = const(3) # Set up 3 MIDI in ports
-_NUM_OUT      = const(2) # and 2 MIDI out ports
+_NUM_IN         = const(3) # Set up 3 MIDI in ports
+_NUM_OUT        = const(2) # and 2 MIDI out ports
+###### test length issue
+_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character (?)
+_OUT_PORT_NAMES = ('OUT A', 'OUT B') # Port names need to be longer than one character (?)
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
@@ -59,21 +62,23 @@ class MidiExample(MidiMulti):
         channel = byte_0 & 0x0F
         if command == 0x90 and byte_2 != 0: # Note On
             print(f'RX Note On on port {cable}: channel {channel} note {byte_1} velocity {byte_2}')
-        elif command == 0x80 or (command == 0x90 and byte_2 == 0):  # Note Off
+        elif command == 0x80 or (command == 0x90 and byte_2 == 0): # Note Off
             print(f'RX Note Off on port {cable}: channel {channel} note {byte_1} velocity {byte_2}')
-        elif command == 0xB0:  # Control Change
+        elif command == 0xB0: # Control Change
             print(f'RX CC on port {cable}: channel {channel} ctrl {byte_1} value {byte_2}')
         else:
             print(f'RX MIDI message on port {cable}: {byte_0}, {byte_1}, {byte_2}')
 
 # For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
-m = MidiExample(_NUM_IN, _NUM_OUT)
+m = MidiExample(_NUM_IN, _NUM_OUT, _IN_PORT_NAMES, _OUT_PORT_NAMES)
 m.setup_callbacks()
-# Remove builtin_driver=True if you don't want the MicroPython serial REPL available; manufacturer_str, product_str and serial_str are optional
+# Remove builtin_driver=True or set it to False if you don’t want the MicroPython serial REPL available; manufacturer_str, product_str and
+# serial_str are optional (builtin_driver=True doesn’t work with Windows)
+# device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
+# isn’t needed
 usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
-######
-                      # device_class=0xEF, device_subclass=2, device_protocol=1
+                      device_class=0xEF, device_subclass=2, device_protocol=1
 ###### for testing pursposes only
                       # id_vendor=0x0582, # Roland VID
                       # id_product=0x0006 # Roland UM-1 PID
