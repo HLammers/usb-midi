@@ -1,7 +1,9 @@
 ''' Multi-port USB MIDI 1.0 library for MicroPython based on a multiple streaming interface approach
 
     Multiple MIDI ports set up this way are recognized by Windows and Linux and shoud work on macOS as well (not tested)
-    Port names are ignored by Windows and Linux, but should show on macOS (not tested)
+    Port names are ignored by Windows and Linux, but might show on macOS (not tested)
+    On Windows this approach only works:
+    - Without builtin_driver=True (names are ignored)
 
     This library is still in testing phase and further development might introduce breaking changes
 
@@ -198,11 +200,11 @@ class MidiPortInterface(Interface):
         _rx_buffer.finish_read(i)
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
-        if self.port_name is not None:
+        if self.port_name is None:
+            iInterface = 0
+        else:
             iInterface = len(strs)
             strs.append(self.port_name)
-        else:
-            iInterface = 0
         jack_in_id = 1 + 2 * self.port_index
         Jack_out_id = jack_in_id + 1
         # MIDI Streaming interface
