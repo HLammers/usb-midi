@@ -161,11 +161,15 @@ class MidiMulti(Interface):
                 jack_id += 1
         # Single shared out Endpoint
         self.ep_out = ep_num
-        _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1)
+######
+        # _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1) # interupt
+        _pack('<BBBBHB', 7, 5, ep_num, 2, 32, 0) # bulk
         _pack('<BBBB' + num_in * 'B', 4 + num_in, 0x25, 1, num_in, *jack_in_ids)
         # Single shared in Endpoint
         self.ep_in = (ep_in := ep_num | 0x80)
-        _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1)
+######
+        # _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1) # interupt
+        _pack('<BBBBHB', 7, 5, ep_in, 2, 32, 0) # bulk
         _pack('<BBBB' + num_out * 'B', 4 + num_out, 0x25, 1, num_out, *jack_out_ids)
 
     def _tx_xfer(self):

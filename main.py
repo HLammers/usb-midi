@@ -36,8 +36,8 @@ import usb.device
 from usb.device.midi_multi_cable import MidiMulti
 import time
 
-_NUM_IN         = const(3) # Set up 3 MIDI in ports
-_NUM_OUT        = const(3) # and 2 MIDI out ports
+_NUM_IN         = const(2) # Set up 3 MIDI in ports
+_NUM_OUT        = const(2) # and 2 MIDI out ports
 ###### test length issue
 _IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character (?)
 _OUT_PORT_NAMES = ('OUT A', 'OUT B', 'OUT C') # Port names need to be longer than one character (?)
@@ -78,10 +78,10 @@ m.setup_callbacks()
 # device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
 # isn’t needed
 usb.device.get().init(m, builtin_driver=False, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
-                      device_class=0xEF, device_subclass=2, device_protocol=1
+                    #   device_class=0xEF, device_subclass=2, device_protocol=1
 ###### for testing pursposes only
-                      # id_vendor=0x0582, # Roland VID
-                      # id_product=0x0006 # Roland UM-1 PID
+                    #   id_vendor=0x0582, # Roland VID
+                    #   id_product=0x0006 # Roland UM-1 PID
                       )
 print('Waiting for USB host to configure the interface...')
 while not m.is_open():
