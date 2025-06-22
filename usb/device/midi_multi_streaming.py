@@ -2,8 +2,9 @@
 
     Multiple MIDI ports set up this way are recognized by Windows and Linux and shoud work on macOS as well (not tested)
     Port names are ignored by Windows and Linux, but might show on macOS (not tested)
-    On Windows this approach only works:
-    - Without builtin_driver=True (names are ignored)
+    If usb.device is initiatied with builtin_driver=True this approach doesn’t work with windows (with or without names assigned)
+    If port names are defined, these need to be longer than one character, otherwise Windows draws a GeneralFailure error (this might be either
+    a Windows quirk or a bug in machine.USBDevice)
 
     This library is still in testing phase and further development might introduce breaking changes
 
@@ -41,7 +42,6 @@ class MidiMulti(Interface):
         super().__init__()
         self.num_ports = num_ports
         self.port_names = port_names or [None for _ in range(num_ports)]
-        # self.ac = MidiACInterface(self)
         self.ports = [MidiPortInterface(i, self.port_names[i]) for i in range(num_ports)]
 
     def set_in_callback(self, port, cb):
@@ -76,16 +76,12 @@ class MidiMulti(Interface):
         # Audio Control interface
         desc.interface(itf_num, 0, 1, 1)
         # Class-specific Audio Control header, points to all MIDI Streaming interfaces following
-        # bLength = 8 + (num_ports := self.num_ports)
-        bLength = 8 + self.num_ports
-        # ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + num_ports))
-        ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + self.num_ports))
-        # desc.pack('<BBBHHB' + 'B' * num_ports, bLength, 0x24, 1, 0x0100, bLength, num_ports, *ms_interface_numbers)
-        desc.pack('<BBBHHB' + 'B' * self.num_ports, bLength, 0x24, 1, 0x0100, bLength, self.num_ports, *ms_interface_numbers)
+        bLength = 8 + (num_ports := self.num_ports)
+        ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + num_ports))
+        desc.pack('<BBBHHB' + 'B' * num_ports, bLength, 0x24, 1, 0x0100, bLength, num_ports, *ms_interface_numbers)
         next_itf = itf_num + 1
         next_ep = ep_num
-        # for port in self.ports:
-        for i, port in enumerate(self.ports):
+        for port in self.ports:
             port.desc_cfg(desc, next_itf, next_ep, strs)
             next_itf += port.num_itfs()
             next_ep += port.num_eps()
@@ -101,26 +97,6 @@ class MidiMulti(Interface):
         # Kick off any transfers that may have queued while the device was not open
         for p in self.ports:
             p.on_open()
-
-######
-# class MidiACInterface(Interface):
-
-#     def __init__(self, parent):
-#         self.parent = parent
-
-#     def desc_cfg(self, desc, itf_num, ep_num, strs):
-#         desc.interface(itf_num, 0, 1, 1)
-#         # Class-specific AC header, points to all MIDIStreaming interfaces following
-#         n_ports = self.parent.num_ports
-#         bLength = 8 + n_ports
-#         ms_interface_numbers = list(range(itf_num + 1, itf_num + 1 + n_ports))
-#         desc.pack('<BBBHHB' + 'B'*n_ports,
-#                   bLength, 0x24, 1, 0x0100, bLength, n_ports, *ms_interface_numbers)        # No terminals
-
-#     def num_itfs(self):
-#         return 1
-#     def num_eps(self):
-#         return 0
 
 class MidiPortInterface(Interface):
     '''Class providing one MIDIStreaming interface for one port'''
@@ -146,8 +122,8 @@ class MidiPortInterface(Interface):
         w = _tx_buffer.pend_write()
         if len(w) < 4:
             return False
-######
-        w[0] = (0 << 4) | cin
+
+        w[0] = cin
         w[1] = data_0
         w[2] = data_1
         w[3] = data_2
@@ -158,10 +134,8 @@ class MidiPortInterface(Interface):
     def _tx_xfer(self):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
         _tx_buffer = self._tx_buffer
-        # if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _tx_buffer.readable():
-        #     self.submit_xfer(ep_in, _tx_buffer.pend_read(), self._tx_cb)
-        if self.is_open() and not self.xfer_pending(self.ep_in) and _tx_buffer.readable():
-            self.submit_xfer(self.ep_in, _tx_buffer.pend_read(), self._tx_cb)
+        if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _tx_buffer.readable():
+            self.submit_xfer(ep_in, _tx_buffer.pend_read(), self._tx_cb)
 
     def _tx_cb(self, ep, res, num_bytes):
         if res == 0:
@@ -171,11 +145,8 @@ class MidiPortInterface(Interface):
     def _rx_xfer(self):
         '''Keep an active OUT transfer to receive MIDI events from the host'''
         _rx_buffer = self._rx_buffer
-######
-        # if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():
-        #     self.submit_xfer(ep_out, _rx_buffer.pend_write(), self._rx_cb)
-        if self.is_open() and not self.xfer_pending(self.ep_out) and _rx_buffer.writable():
-            self.submit_xfer(self.ep_out, _rx_buffer.pend_write(), self._rx_cb)
+        if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _rx_buffer.writable():
+            self.submit_xfer(ep_out, _rx_buffer.pend_write(), self._rx_cb)
 
     def _rx_cb(self, ep, res, num_bytes):
         '''USB callback function to receive MIDI data'''
@@ -189,11 +160,12 @@ class MidiPortInterface(Interface):
         port = self.port_index
         _rx_buffer = self._rx_buffer
         m = _rx_buffer.pend_read()
+        _in_callback = self._in_callback
         i = 0
         while i <= len(m) - 4:
             cin = m[i] & 0x0F
             try:
-                self._in_callback(port, cin, *m[i + 1:i + 4]) # type: ignore
+                _in_callback(port, cin, *m[i + 1:i + 4]) # type: ignore
             except:
                 pass
             i += 4
@@ -210,19 +182,21 @@ class MidiPortInterface(Interface):
         # MIDI Streaming interface
         desc.interface(itf_num, 2, 1, 3, 0, iInterface)
         # Class-specific MIDI Streaming header
-        desc.pack('<BBBHH', 7, 0x24, 1, 0x0100, 25)
+        _pack = desc.pack
+        _pack('<BBBHH', 7, 0x24, 1, 0x0100, 25)
         # Embedded in Jack
-        desc.pack('<BBBBBB', 6, 0x24, 2, 1, jack_in_id, 0)
+        _pack('<BBBBBB', 6, 0x24, 2, 1, jack_in_id, 0)
         # Embedded out Jack
-        desc.pack('<BBBBBBBBB', 9, 0x24, 3, 1, Jack_out_id, 1, jack_in_id, 1, 0)
+        _pack('<BBBBBBBBB', 9, 0x24, 3, 1, Jack_out_id, 1, jack_in_id, 1, 0)
+###### TRY ADDING EXTERNAL JACKS
         # Out endpoint
         self.ep_out = ep_num
-        desc.pack('<BBBBHB', 7, 5, self.ep_out, 3, 32, 1)
+        _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1)
         desc.pack('<BBBBB', 5, 0x25, 1, 1, jack_in_id)
         # In endpoint
-        self.ep_in = ep_num | 0x80
-        desc.pack('<BBBBHB', 7, 5, self.ep_in, 3, 32, 1)
-        desc.pack('<BBBBB', 5, 0x25, 1, 1, Jack_out_id)
+        self.ep_in = (ep_in := ep_num | 0x80)
+        _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1)
+        _pack('<BBBBB', 5, 0x25, 1, 1, Jack_out_id)
 
     def num_itfs(self):
         return 1
