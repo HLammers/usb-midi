@@ -63,8 +63,13 @@ class MidiMulti(Interface):
         return self.ports[port].send_event(cin, data_0, data_1, data_2)
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
-        # Interface Association Descriptor (TEST: try with and without IAD)
-######
+        # Interface Association Descriptor
+
+        # If usb.device is initiated without builtin_driver=True, but with device_class=0xEF, device_subclass=2, device_protocol=1 (which is
+        # needed with builtin_driver=True, because that adds an IAD), USBView on windows shows an error that device_class, device_subclass and
+        # device_protocol should only be inlcuded if an IAD is included, but it works anyway. desc.interface_assoc(itf_num, 2, 1, 1, 0) adds
+        # an IAD, which solves the above mentioned error, but then the MIDI ports are not reconginised correctly anymore. 
+
         # desc.interface_assoc(itf_num, 2, 1, 1, 0)
         # Audio Control interface
         desc.interface(itf_num, 0, 1, 1)

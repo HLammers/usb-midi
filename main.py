@@ -37,7 +37,7 @@ from usb.device.midi_multi_streaming import MidiMulti
 import time
 
 _NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports
-_PORT_NAMES   = ('A', 'B', 'C')
+_PORT_NAMES   = ('DIN', 'USB Host', 'Virtual')
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
@@ -73,7 +73,7 @@ m.setup_callbacks()
 # Remove builtin_driver=True if you don't want the MicroPython serial REPL available; manufacturer_str, product_str and serial_str are optional
 # device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
 # isn't needed
-usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
+usb.device.get().init(m, builtin_driver=False, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
                       device_class=0xEF, device_subclass=2, device_protocol=1)
 print('Waiting for USB host to configure the interface...')
 while not m.is_open():
