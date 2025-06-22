@@ -177,26 +177,33 @@ class MidiPortInterface(Interface):
         else:
             iInterface = len(strs)
             strs.append(self.port_name)
-        jack_in_id = 1 + 2 * self.port_index
-        Jack_out_id = jack_in_id + 1
+        jack_emb_in_id = 1 + 2 * self.port_index
+        jack_emb_out_id = jack_emb_in_id + 1
+######
+        jack_ext_in_id = jack_emb_out_id + 1
+        jack_ext_out_id = jack_ext_in_id + 1
         # MIDI Streaming interface
         desc.interface(itf_num, 2, 1, 3, 0, iInterface)
         # Class-specific MIDI Streaming header
         _pack = desc.pack
         _pack('<BBBHH', 7, 0x24, 1, 0x0100, 25)
         # Embedded in Jack
-        _pack('<BBBBBB', 6, 0x24, 2, 1, jack_in_id, 0)
+        _pack('<BBBBBB', 6, 0x24, 2, 1, jack_emb_in_id, 0)
         # Embedded out Jack
-        _pack('<BBBBBBBBB', 9, 0x24, 3, 1, Jack_out_id, 1, jack_in_id, 1, 0)
-###### TRY ADDING EXTERNAL JACKS
+        _pack('<BBBBBBBBB', 9, 0x24, 3, 1, jack_emb_out_id, 1, jack_emb_in_id, 1, 0)
+######
+        # External in jack
+        _pack('<BBBBBB', 6, 0x24, 2, 2, jack_ext_in_id, 0)
+        # External out jack
+        _pack('<BBBBBBBBB', 9, 0x24, 3, 2, jack_ext_out_id, 1, jack_emb_in_id, 1, 0)
         # Out endpoint
         self.ep_out = ep_num
         _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1)
-        desc.pack('<BBBBB', 5, 0x25, 1, 1, jack_in_id)
+        desc.pack('<BBBBB', 5, 0x25, 1, 1, jack_emb_in_id)
         # In endpoint
         self.ep_in = (ep_in := ep_num | 0x80)
         _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1)
-        _pack('<BBBBB', 5, 0x25, 1, 1, Jack_out_id)
+        _pack('<BBBBB', 5, 0x25, 1, 1, jack_emb_out_id)
 
     def num_itfs(self):
         return 1
