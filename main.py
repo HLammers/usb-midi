@@ -78,7 +78,7 @@ m.setup_callbacks()
 # serial_str are optional (builtin_driver=True doesn’t work with Windows)
 # device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
 # isn’t needed
-usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
+usb.device.get().init(m, builtin_driver=False, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
                       device_class=0xEF, device_subclass=2, device_protocol=1)
 print('Waiting for USB host to configure the interface...')
 while not m.is_open():
