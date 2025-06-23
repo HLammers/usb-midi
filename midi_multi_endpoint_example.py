@@ -36,11 +36,8 @@ import usb.device
 from usb.device.midi_multi_endpoint import MidiMulti
 import time
 
-_NUM_IN = 2
-_NUM_OUT = 2
-
-_NUM_IN         = const(3) # Set up 3 MIDI in ports
-_NUM_OUT        = const(2) # and 2 MIDI out ports
+_NUM_IN         = const(1) # Set up 3 MIDI in ports
+_NUM_OUT        = const(1) # and 2 MIDI out ports
 _IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character
 _OUT_PORT_NAMES = ('OUT A', 'OUT B') # Port names need to be longer than one character
 _MANUFACTURER = 'TestMaker'
@@ -75,6 +72,8 @@ class MidiExample(MidiMulti):
 
 # For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
+######
+time.sleep_ms(9000)
 m = MidiExample(_NUM_IN, _NUM_OUT, _IN_PORT_NAMES, _OUT_PORT_NAMES)
 m.setup_callbacks()
 # Remove builtin_driver=True or set it to False if you don’t want the MicroPython serial REPL available; manufacturer_str, product_str and
@@ -83,6 +82,7 @@ m.setup_callbacks()
 # isn’t needed
 usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
                       device_class=0xEF, device_subclass=2, device_protocol=1)
+# )
 print('Waiting for USB host to configure the interface...')
 while not m.is_open():
     time.sleep_ms(100)

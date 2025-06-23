@@ -44,8 +44,8 @@ class MidiMulti(Interface):
         self.out_names = out_names or [None for _ in range(num_out)]
         self.ep_out = [None] * num_in
         self.ep_in  = [None] * num_out
-        self._rx_buffer = [Buffer(_EP_MIDI_PACKET_SIZE) for _ in range(num_in)]
-        self._tx_buffer = [Buffer(_EP_MIDI_PACKET_SIZE) for _ in range(num_out)]
+        self._rx_buffers = [Buffer(_EP_MIDI_PACKET_SIZE) for _ in range(num_in)]
+        self._tx_buffers = [Buffer(_EP_MIDI_PACKET_SIZE) for _ in range(num_out)]
         self._in_callbacks = [None] * num_in
 
     def set_in_callback(self, port, cb):
@@ -66,7 +66,7 @@ class MidiMulti(Interface):
     def send_event(self, port, cin, data_0, data_1=0, data_2=0):
         '''Queue a MIDI Event Packet to be sent to the host; takes a port number, a USB-MIDI Code Index Number (CIN) and up to three MIDI data
         bytes; returns False if failed due to the TX buffer being full'''
-        _buffer = self._tx_buffer[port]
+        _buffer = self._tx_buffers[port]
         w = _buffer.pend_write()
         if len(w) < 4:
             return False # TX buffer full
@@ -148,33 +148,43 @@ class MidiMulti(Interface):
 
     def _tx_xfer(self, port):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
-        _buffer = self._tx_buffer[port]
+######
+        log(f'_tx_xfer {port}')
+        _buffer = self._tx_buffers[port]
         ep = self.ep_in[port]
         if self.is_open() and not self.xfer_pending(ep) and _buffer.readable():
             self.submit_xfer(ep, _buffer.pend_read(), lambda ep, res, n: self._tx_cb(port, ep, res, n))
 
     def _tx_cb(self, port, ep, res, num_bytes):
+######
+        log(f'_tx_cb {port}')
         if res == 0:
-            self._tx_buffer[port].finish_read(num_bytes)
+            self._tx_buffers[port].finish_read(num_bytes)
         self._tx_xfer(port)
 
     def _rx_xfer(self, port):
+######
+        log(f'_rx_xfer {port}')
         '''Keep an active OUT transfer to receive MIDI events from the host'''
-        _buffer = self._rx_buffer[port]
+        _buffer = self._rx_buffers[port]
         ep = self.ep_out[port]
         if self.is_open() and not self.xfer_pending(ep) and _buffer.writable():
             self.submit_xfer(ep, _buffer.pend_write(), lambda ep, res, n: self._rx_cb(port, ep, res, n))
 
     def _rx_cb(self, port, ep, res, num_bytes):
+######
+        log(f'_rx_cb {port}')
         '''USB callback function to receive MIDI data'''
         if res == 0:
-            self._rx_buffer[port].finish_write(num_bytes)
+            self._rx_buffers[port].finish_write(num_bytes)
             schedule(lambda _: self._on_rx(port), None) # (QUESTION: avoid schedule because it makes it run on the main thread?)
         self._rx_xfer(port)
 
     def _on_rx(self, port):
+######
+        log(f'_on_rx {port}')
         '''Receive MIDI events; called from self._rx_cb via micropython.schedule'''
-        _buffer = self._rx_buffer[port]
+        _buffer = self._rx_buffers[port]
         m = _buffer.pend_read()
         _callback = self._in_callbacks[port]
         i = 0
@@ -186,3 +196,8 @@ class MidiMulti(Interface):
                 pass
             i += 4
         _buffer.finish_read(i)
+
+######
+def log(msg):
+    with open('/log.txt', 'a') as f:
+        f.write(msg + '\n')
