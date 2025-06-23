@@ -1,8 +1,7 @@
-''' Multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual cables approach
+''' Multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual Cables approach
 
-    This work for 1 MIDI in port and 1 MIDI out port (i.e. 1 cable per Endpoint), but doesn’t work with Windows or Linux (not ntested on
-    on macOS) if the number of in ports and/or the number of out ports is set to more than one
-    Port names are not (yet) implemented
+    Multiple cables are recognized by Linux and probably by macOS (not tested), but not by Windows. Only a 1 in, 1 out configuration will show
+    in Windows
 
     This library is still in testing phase and further development might introduce breaking changes
 
@@ -104,70 +103,38 @@ class MidiMulti(Interface):
         # Class-specific MIDI Streaming interface header
         total_class_specific_len = 7 + (num_in := self.num_in) * 6 + (num_out := self.num_out) * 9 + num_out * 6 + num_in * 9
         _pack('<BBBHH', 7, 0x24, 1, 0x0100, total_class_specific_len)
-######
-        # # In Jacks for each virtual in cable
-        # in_names = self.in_names
-        # for i in range(num_in):
-        #     if (name := in_names[i]) is None:
-        #         iJack = 0
-        #     else:
-        #         iJack = len(strs)
-        #         strs.append(name)
-        #     _pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE, 1 + i, iJack)
-        # # Out Jacks for each virtual out cable
-        # out_names = self.out_names
-        # for i in range(num_out):
-        #     if (name := out_names[i]) is None:
-        #         iJack = 0
-        #     else:
-        #         iJack = len(strs)
-        #         strs.append(name)
-        #     _pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, 1 + num_in + i, 1, 1 + i, 1, iJack)
-        # # Single shared out Endpoint
-        # self.ep_out = ep_num
-        # _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1)
-        # _pack('<BBBBB', 5, 0x25, 1, num_in, *[1 + i for i in range(num_in)])
-        # # Single shared in Endpoint
-        # self.ep_in = (ep_in := ep_num | 0x80)
-        # _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1)
-        # _pack('<BBBBB', 5, 0x25, 1, num_out, *[1 + num_in + i for i in range(num_out)])
-######
-        # In jacks for each virtual in cable and out jacks for each virtual out cable
+        # In Jacks for each virtual in cable
         jack_in_ids = []
-        jack_out_ids = []
         in_names = self.in_names
-        out_names = self.out_names
         jack_id = 1
-        for i in range(max(num_in, num_out)):
-            # In Jacks for each virtual in cable
-            if i < num_in:
-                if (name := in_names[i]) is None:
-                    iJack = 0
-                else:
-                    iJack = len(strs)
-                    strs.append(name)
-                _pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE, (jack_in_id := jack_id), iJack)
-                jack_in_ids.append(jack_id)
-                jack_id += 1
-            # Out Jacks for each virtual out cable
-            if i < num_out:
-                if (name := out_names[i]) is None:
-                    iJack = 0
-                else:
-                    iJack = len(strs)
-                    strs.append(name)
-                _pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, jack_id, 1, jack_in_id, 1, iJack)
-                jack_out_ids.append(jack_id)
-                jack_id += 1
+        for i in range(num_in):
+            if (name := in_names[i]) is None:
+                iJack = 0
+            else:
+                iJack = len(strs)
+                strs.append(name)
+            _pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE, (jack_in_id := jack_id), iJack)
+            jack_in_ids.append(jack_id)
+            jack_id += 1
+        # Out Jacks for each virtual out cable
+        jack_out_ids = []
+        out_names = self.out_names
+        for i in range(num_out):
+            if (name := out_names[i]) is None:
+                iJack = 0
+            else:
+                iJack = len(strs)
+                strs.append(name)
+            _pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, jack_id, 1, jack_in_id, 1, iJack)
+            jack_out_ids.append(jack_id)
+            jack_id += 1
         # Single shared out Endpoint
         self.ep_out = ep_num
-######
         # _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1) # interupt
         _pack('<BBBBHB', 7, 5, ep_num, 2, 32, 0) # bulk
         _pack('<BBBB' + num_in * 'B', 4 + num_in, 0x25, 1, num_in, *jack_in_ids)
         # Single shared in Endpoint
         self.ep_in = (ep_in := ep_num | 0x80)
-######
         # _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1) # interupt
         _pack('<BBBBHB', 7, 5, ep_in, 2, 32, 0) # bulk
         _pack('<BBBB' + num_out * 'B', 4 + num_out, 0x25, 1, num_out, *jack_out_ids)

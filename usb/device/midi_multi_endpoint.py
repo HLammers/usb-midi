@@ -1,4 +1,4 @@
-''' Multi-port USB MIDI 1.0 library for MicroPython based on a multiple endpoints approach
+''' Multi-port USB MIDI 1.0 library for MicroPython based on a multiple Endpoints approach
 
     Multiple MIDI ports set up this way are recognized Linux, but not on Windows (not tested on macOS)
     Port names are not (yet) implemented
@@ -36,10 +36,12 @@ _JACK_TYPE = const(1) # 1 = Embedded, 2 = External
 class MidiMulti(Interface):
     '''USB MIDI 1.0 device class supporting multiple MIDI ports in the form of multiple endpoints '''
 
-    def __init__(self, num_in=1, num_out=1):
+    def __init__(self, num_in=1, num_out=1, in_names=None, out_names=None):
         super().__init__()
         self.num_in = num_in
         self.num_out = num_out
+        self.in_names = in_names or [None for _ in range(num_in)]
+        self.out_names = out_names or [None for _ in range(num_out)]
         self.ep_out = [None] * num_in
         self.ep_in  = [None] * num_out
         self._rx_buffer = [Buffer(_EP_MIDI_PACKET_SIZE) for _ in range(num_in)]
@@ -64,16 +66,16 @@ class MidiMulti(Interface):
     def send_event(self, port, cin, data_0, data_1=0, data_2=0):
         '''Queue a MIDI Event Packet to be sent to the host; takes a port number, a USB-MIDI Code Index Number (CIN) and up to three MIDI data
         bytes; returns False if failed due to the TX buffer being full'''
-        _tx_buffer = self._tx_buffer[port]
-        w = _tx_buffer.pend_write()
+        _buffer = self._tx_buffer[port]
+        w = _buffer.pend_write()
         if len(w) < 4:
             return False # TX buffer full
         w[0] = cin
         w[1] = data_0
         w[2] = data_1
         w[3] = data_2
-        _tx_buffer.finish_write(4)
-        self._tx_xfers(port)
+        _buffer.finish_write(4)
+        self._tx_xfer(port)
         return True
 
     def desc_cfg(self, desc, itf_num, ep_num, strs):
@@ -87,31 +89,46 @@ class MidiMulti(Interface):
         # desc.interface_assoc(itf_num, 2, 1, 1, 0)
         # Audio Control interface
         desc.interface(itf_num, 0, 1, 1)
-        desc.pack('<BBBHHBB', 9, 0x24, 1, 0x0100, 9, 1, itf_num + 1)
+        _pack = desc.pack
+        _pack('<BBBHHBB', 9, 0x24, 1, 0x0100, 9, 1, itf_num + 1)
         # MIDI Streaming interface
         ms_if_num = itf_num + 1
         desc.interface(ms_if_num, (num_in := self.num_in) + (num_out := self.num_out), 1, 3)
         # Class-specific MIDI Streaming interface header
         cs_len = 7 + num_in * 6 + num_out * 9
-        desc.pack('<BBBHH', 7, 0x24, 1, 0x0100, cs_len)
+        _pack('<BBBHH', 7, 0x24, 1, 0x0100, cs_len)
         # In Jacks
+        in_names = self.in_names
         for i in range(num_in):
-            desc.pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE, 1 + i, 0)
+            if (name := in_names[i]) is None:
+                iJack = 0
+            else:
+                iJack = len(strs)
+                strs.append(name)
+            _pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE, 1 + i, iJack)
         # Out Jacks
+        out_names = self.out_names
         for i in range(num_out):
-            desc.pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, 1 + num_in + i, 1, 1 + i, 1, 0)
+            if (name := out_names[i]) is None:
+                iJack = 0
+            else:
+                iJack = len(strs)
+                strs.append(name)
+            _pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, 1 + num_in + i, 1, 1 + i, 1, iJack)
         endpoint_id = ep_num
         # Out Endpoints
         for i in range(num_in):
             self.ep_out[i] = endpoint_id
-            desc.pack('<BBBBHB', 7, 5, endpoint_id, 3, 32, 1)
-            desc.pack('<BBBBB', 5, 0x25, 1, 1, 1 + i)
+            # _pack('<BBBBHB', 7, 5, endpoint_id, 3, 32, 1) # interupt
+            _pack('<BBBBHB', 7, 5, endpoint_id, 2, 32, 0) # bulk
+            _pack('<BBBBB', 5, 0x25, 1, 1, 1 + i)
             endpoint_id += 1
         # In Endpoints
         for i in range(num_out):
             self.ep_in[i] = (ep_id := endpoint_id | 0x80)
-            desc.pack('<BBBBHB', 7, 5, ep_id, 3, 32, 1)
-            desc.pack('<BBBBB', 5, 0x25, 1, 1, 1 + self.num_in + i)
+            # _pack('<BBBBHB', 7, 5, ep_id, 3, 32, 1) # interupt
+            _pack('<BBBBHB', 7, 5, ep_id, 2, 32, 0) # bulk
+            _pack('<BBBBB', 5, 0x25, 1, 1, 1 + self.num_in + i)
             endpoint_id += 1
 
     def num_itfs(self):
@@ -122,14 +139,14 @@ class MidiMulti(Interface):
 
     def on_open(self):
         super().on_open()
-        _xfers = self._tx_xfers
+        _xfer = self._tx_xfer
         for i in range(self.num_out):
-            _xfers(i)
-        _xfers = self._rx_xfers
+            _xfer(i)
+        _xfer = self._rx_xfer
         for i in range(self.num_in):
-            _xfers(i)
+            _xfer(i)
 
-    def _tx_xfers(self, port):
+    def _tx_xfer(self, port):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
         _buffer = self._tx_buffer[port]
         ep = self.ep_in[port]
@@ -139,9 +156,9 @@ class MidiMulti(Interface):
     def _tx_cb(self, port, ep, res, num_bytes):
         if res == 0:
             self._tx_buffer[port].finish_read(num_bytes)
-        self._tx_xfers(port)
+        self._tx_xfer(port)
 
-    def _rx_xfers(self, port):
+    def _rx_xfer(self, port):
         '''Keep an active OUT transfer to receive MIDI events from the host'''
         _buffer = self._rx_buffer[port]
         ep = self.ep_out[port]
@@ -153,7 +170,7 @@ class MidiMulti(Interface):
         if res == 0:
             self._rx_buffer[port].finish_write(num_bytes)
             schedule(lambda _: self._on_rx(port), None) # (QUESTION: avoid schedule because it makes it run on the main thread?)
-        self._rx_xfers(port)
+        self._rx_xfer(port)
 
     def _on_rx(self, port):
         '''Receive MIDI events; called from self._rx_cb via micropython.schedule'''

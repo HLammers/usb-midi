@@ -160,11 +160,13 @@ class MidiPortInterface(Interface):
         _pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, jack_out_id, 1, jack_in_id, 1, iJack)
         # Out Endpoint
         self.ep_out = ep_num
-        _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1)
+        _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1) # interupt
+        # _pack('<BBBBHB', 7, 5, ep_num, 2, 32, 0) # bulk
         desc.pack('<BBBBB', 5, 0x25, 1, 1, jack_in_id)
         # In Endpoint
         self.ep_in = (ep_in := ep_num | 0x80)
-        _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1)
+        _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1) # interupt
+        # _pack('<BBBBHB', 7, 5, ep_in, 2, 32, 0) # bulk
         _pack('<BBBBB', 5, 0x25, 1, 1, jack_out_id)
 
     def num_itfs(self):

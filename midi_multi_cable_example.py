@@ -1,4 +1,4 @@
-''' Example for multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual cables approach
+''' Example for multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual Cables approach
 
     This example demonstrates creating a custom MIDI device with 3 ports
 
@@ -38,9 +38,8 @@ import time
 
 _NUM_IN         = const(3) # Set up 3 MIDI in ports
 _NUM_OUT        = const(2) # and 2 MIDI out ports
-###### test length issue
-_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character (?)
-_OUT_PORT_NAMES = ('OUT A', 'OUT B') # Port names need to be longer than one character (?)
+_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character
+_OUT_PORT_NAMES = ('OUT A', 'OUT B') # Port names need to be longer than one character
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
@@ -52,9 +51,11 @@ class MidiExample(MidiMulti):
         print('Device opened by host')
 
     def setup_callbacks(self):
-        '''Assign callback functions to each MIDI port'''
+        '''Assign callback functions to each MIDI port (Cable)'''
+        _set_in_callback = self.set_in_callback
+        _print_midi_in = self._print_midi_in
         for i in range(self.num_in):
-            self.set_in_callback(i, self._print_midi_in)
+            _set_in_callback(i, _print_midi_in)
 
     def _print_midi_in(self, cable, cin, byte_0, byte_1, byte_2):
         '''Example callback function which is called each time a MIDI message is received'''
@@ -78,11 +79,7 @@ m.setup_callbacks()
 # device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
 # isn’t needed
 usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
-                      device_class=0xEF, device_subclass=2, device_protocol=1
-###### for testing pursposes only
-                      # id_vendor=0x0582, # Roland VID
-                      # id_product=0x0006 # Roland UM-1 PID
-                      )
+                      device_class=0xEF, device_subclass=2, device_protocol=1)
 print('Waiting for USB host to configure the interface...')
 while not m.is_open():
     time.sleep_ms(100)
@@ -103,4 +100,4 @@ while m.is_open():
         m.control_change(port, _CHANNEL, _CONTROLLER, control_val)
         control_val = (control_val + 1) & 0x7F
         time.sleep(1)
-print('USB host has reset device, example done.')
+print('USB host has reset device, example done')

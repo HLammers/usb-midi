@@ -37,8 +37,8 @@ from usb.device.midi_multi_streaming import MidiMulti
 import time
 
 _NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports
-_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character (?)
-_OUT_PORT_NAMES = ('OUT A', 'OUT B', 'OUT C') # Port names need to be longer than one character (?)
+_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character
+_OUT_PORT_NAMES = ('OUT A', 'OUT B', 'OUT C') # Port names need to be longer than one character
 _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = '123456'
@@ -51,8 +51,10 @@ class MIDIExample(MidiMulti):
 
     def setup_callbacks(self):
         '''Assign callback functions to each MIDI port'''
+        _set_in_callback = self.set_in_callback
+        _print_midi_in = self._print_midi_in
         for i in range(self.num_ports):
-            self.set_in_callback(i, self._print_midi_in)
+            _set_in_callback(i, _print_midi_in)
 
     def _print_midi_in(self, port, cin, byte_0, byte_1, byte_2):
         '''Example callback function which is called each time a MIDI message is received'''
