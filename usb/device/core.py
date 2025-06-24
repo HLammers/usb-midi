@@ -244,7 +244,6 @@ class _Device:
             print("Descriptor hex:", desc.b[:desc.o].hex())
             print("Descriptor bytes:", list(desc.b[:desc.o]))
             print('strs', strs)
-            print('total length of all strings', sum([0 if s is None else len(s) for s in strs]))
             time.sleep_ms(1000)
 
         _usbd.config(

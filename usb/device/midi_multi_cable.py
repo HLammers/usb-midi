@@ -1,6 +1,6 @@
 ''' Multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual Cables approach
 
-    Multiple cables are recognized by Linux and probably by macOS (not tested), but not by Windows. Only a 1 in, 1 out configuration will show
+    Multiple cables are recognized by Linux and probably by macOS (not tested), but not by Windows. Only a 1 IN, 1 OUT configuration will show
     in Windows
 
     This library is still in testing phase and further development might introduce breaking changes
@@ -30,12 +30,13 @@
 from micropython import schedule
 from usb.device.core import Interface, Buffer
 
-_EP_MIDI_PACKET_SIZE = const(64)
+_BUFFER_SIZE = const(64)
+_EP_PACKET_SIZE = const(64)
 _JACK_TYPE = const(1) # 1 = Embedded, 2 = External
 _MAX_CABLES = const(16)  # USB MIDI 1.0: up to 16 cables per Endpoint
 
 class MidiMulti(Interface):
-    '''USB MIDI 1.0 device class supporting up to 16 MIDI ports in the form of virtual MIDI in and out cables'''
+    '''USB MIDI 1.0 device class supporting up to 16 MIDI ports in the form of virtual MIDI IN and OUT cables'''
 
     def __init__(self, num_in=1, num_out=1, in_names=None, out_names=None):
         if not 1 <= num_in <= _MAX_CABLES:
@@ -49,12 +50,12 @@ class MidiMulti(Interface):
         self.out_names = out_names or [None for _ in range(num_out)]
         self.ep_out = None
         self.ep_in = None
-        self._rx_buffer = Buffer(_EP_MIDI_PACKET_SIZE)
-        self._tx_buffer = Buffer(_EP_MIDI_PACKET_SIZE)
+        self._rx_buffer = Buffer(_BUFFER_SIZE)
+        self._tx_buffer = Buffer(_BUFFER_SIZE)
         self._in_callbacks = [None] * num_in
 
     def set_in_callback(self, cable_number, callback):
-        '''Register a callback for received MIDI messages on a virtual cable (port)'''
+        '''Register a callback for received MIDI messages on a virtual Cable (port)'''
         if 0 <= cable_number < self.num_in:
             self._in_callbacks[cable_number] = callback
 
@@ -70,13 +71,13 @@ class MidiMulti(Interface):
         self.send_event(cable, 0xB, 0xB0 | channel, controller, value)
 
     def send_event(self, cable, cin, data_0, data_1=0, data_2=0):
-        '''Queue a MIDI Event Packet to be sent to the host; takes a cable number (port), a USB-MIDI Code Index Number (CIN) and up to three
+        '''Queue a MIDI Event Packet to be sent to the host; takes a Cable number (port), a USB-MIDI Code Index Number (CIN) and up to three
         MIDI data bytes; returns False if failed due to the TX buffer being full'''
         _buffer = self._tx_buffer
         w = _buffer.pend_write()
         if len(w) < 4:
             return False # TX buffer full
-        w[0] = (cable << 4) | cin # First 4 bits: cable, second 4 bits: cin
+        w[0] = (cable << 4) | cin # First 4 bits: Cable, second 4 bits: CIN
         w[1] = data_0
         w[2] = data_1
         w[3] = data_2
@@ -93,18 +94,44 @@ class MidiMulti(Interface):
         # an IAD, which solves the above mentioned error, but then the MIDI ports are not reconginised correctly anymore. 
 
         # desc.interface_assoc(itf_num, 2, 1, 1, 0)
+        _interface = desc.interface
         # Audio Control interface
-        desc.interface(itf_num, 0, 1, 1)
+        _interface(itf_num, # bInterfaceNumber (unique ID)
+                   0,       # bNumEndpoints (no endpoints)
+                   1,       # bInterfaceClass=AUDIO
+                   1,       # bInterfaceSubClass=AUDIO_CONTROL
+                   0,       # bInterfaceProtocol (unused)
+                   0        # iInterface (index of string descriptor or 0 if none assigned)
+                   )
         _pack = desc.pack
-        _pack('<BBBHHBB', 9, 0x24, 1, 0x0100, 0x0009, 1, itf_num + 1)
+        _pack('<BBBHHBB', 
+              9,          # bLength (size of the descriptor in bytes)
+              0x24,       # bDescriptorType=CS_INTERFACE
+              1,          # bDescriptorSubType=MS_HEADER
+              0x0100,     # bcdADC (USB MIDI 1.0 specs)
+              9,          # wTotalLength (total size of class specific descriptors)
+              1,          # bInCollection (number of streaming interfaces)
+              itf_num + 1 # baInterfaceNr(1) (assign MIDIStreming interface 1)
+              )
         # MIDI Streaming interface
-        ms_if_num = itf_num + 1
-        desc.interface(ms_if_num, 2, 1, 3, 0, 0)
+        _interface(itf_num + 1, # bInterfaceNumber (unique ID)
+                   2,           # bNumEndpoints (number of MIDI endpoints assigned to this MIDI Streaming interface)
+                   1,           # bInterfaceClass=AUDIO
+                   3,           # bInterfaceSubClass=MIDISTREAMING
+                   0,           # bInterfaceProtocol (unused)
+                   0            # iInterface (index of string descriptor or 0 if none assigned)
+                   )
         # Class-specific MIDI Streaming interface header
-        total_class_specific_len = 7 + (num_in := self.num_in) * 6 + (num_out := self.num_out) * 9 + num_out * 6 + num_in * 9
-        _pack('<BBBHH', 7, 0x24, 1, 0x0100, total_class_specific_len)
-        # In Jacks for each virtual in cable
-        jack_in_ids = []
+        wTotalLength = 7 + (num_in := self.num_in) * 6 + (num_out := self.num_out) * 9 + num_out * 6 + num_in * 9
+        _pack('<BBBHH',
+              7,           # bLength (size of the descriptor in bytes)
+              0x24,        # bDescriptorType=CS_INTERFACE
+              1,           # bDescriptorSubType=MS_HEADER
+              0x0100,      # bcdADC (USB MIDI 1.0 specs)
+              wTotalLength # wTotalLength (total size of class specific descriptors)
+              )
+        # IN Jacks for each virtual IN Cable
+        in_jack_ids = []
         in_names = self.in_names
         jack_id = 1
         for i in range(num_in):
@@ -113,11 +140,18 @@ class MidiMulti(Interface):
             else:
                 iJack = len(strs)
                 strs.append(name)
-            _pack('<BBBBBB', 6, 0x24, 2, _JACK_TYPE, (jack_in_id := jack_id), iJack)
-            jack_in_ids.append(jack_id)
+            _pack('<BBBBBB',
+                  6,                       # bLength (size of the descriptor in bytes)
+                  0x24,                    # bDescriptorType=CS_INTERFACE
+                  2,                       # bDescriptorSubType=MIDI_IN_JACK
+                  _JACK_TYPE,              # bJackType (EMBEDDED=1, EXTERNAL=2)
+                  (in_jack_id := jack_id), # bJackID (unique ID)
+                  iJack                    # iJack (index of string descriptor or 0 if none assigned)
+                  )
+            in_jack_ids.append(jack_id)
             jack_id += 1
-        # Out Jacks for each virtual out cable
-        jack_out_ids = []
+        # OUT Jacks for each virtual OUT Cable
+        out_jack_ids = []
         out_names = self.out_names
         for i in range(num_out):
             if (name := out_names[i]) is None:
@@ -125,19 +159,71 @@ class MidiMulti(Interface):
             else:
                 iJack = len(strs)
                 strs.append(name)
-            _pack('<BBBBBBBBB', 9, 0x24, 3, _JACK_TYPE, jack_id, 1, jack_in_id, 1, iJack)
-            jack_out_ids.append(jack_id)
+            _pack('<BBBBBBBBB',
+                  9,          # bLength (size of the descriptor in bytes)
+                  0x24,       # bDescriptorType=CS_INTERFACE
+                  3,          # bDescriptorSubType=MIDI_OUT_JACK
+                  _JACK_TYPE, # bJackType (EMBEDDED=1, EXTERNAL=2)
+                  jack_id,    # bJackID (unique ID)
+                  1,          # bNrInputPins (number of input Pins on this MIDI OUT Jack)
+                  in_jack_id, # baSourceID(1) (ID of the Entity to which the first Pin is connected)
+                  1,          # baSourcePIN(1) (output Pin number for the Entity to which the first Pin is connected)
+                  iJack       # iJack (index of string descriptor or 0 if none assigned)
+                  )
+            out_jack_ids.append(jack_id)
             jack_id += 1
-        # Single shared out Endpoint
+        # Single shared OUT Endpoint
         self.ep_out = ep_num
-        # _pack('<BBBBHB', 7, 5, ep_num, 3, 32, 1) # interupt
-        _pack('<BBBBHB', 7, 5, ep_num, 2, 32, 0) # bulk
-        _pack('<BBBB' + num_in * 'B', 4 + num_in, 0x25, 1, num_in, *jack_in_ids)
-        # Single shared in Endpoint
+        _pack('<BBBBHB',
+              7,               # bLength (size of the descriptor in bytes)
+              5,               # bDescriptorType=ENDPOINT
+              ep_num,          # bEndpointAddress (0 to 15 with bit7=0 for OUT)
+              2,               # bmAttributes (2 for Bulk, not shared; alternative: 3 for Interval)
+              _EP_PACKET_SIZE, # wMaxPacketSize
+              0,                # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
+###### TODO: test if needed (set bLength to 9 instead of 7 for testing)
+            #   0,               # bRefresh (unused)
+            #   0,               # bSynchAddress (unused)
+              )
+        _pack('<BBBB' + num_in * 'B',
+              4 + num_in,  # bLength (size of the descriptor in bytes)
+              0x25,        # bDescriptorType=CS_ENDPOINT
+              1,           # bDescriptorSubtype=MS_GENERAL
+              num_in,      # bNumEmbMIDIJack (number of Embedded MIDI IN Jacks)
+              *in_jack_ids # baAssocJackID(1 to n) (IDs of the associated Embedded MIDI IN Jacks)
+              )
+        # Single shared IN Endpoint
         self.ep_in = (ep_in := ep_num | 0x80)
-        # _pack('<BBBBHB', 7, 5, ep_in, 3, 32, 1) # interupt
-        _pack('<BBBBHB', 7, 5, ep_in, 2, 32, 0) # bulk
-        _pack('<BBBB' + num_out * 'B', 4 + num_out, 0x25, 1, num_out, *jack_out_ids)
+        _pack('<BBBBHB',
+              7,               # bLength (size of the descriptor in bytes)
+              5,               # bDescriptorType=ENDPOINT
+              ep_in,           # bEndpointAddress (0 to 15 with bit7=1 for IN: 128 to 143)
+              2,               # bmAttributes (2 for Bulk, not shared; alternative: 3 for Interval)
+              _EP_PACKET_SIZE, # wMaxPacketSize
+              0,                # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
+###### TODO: test if needed (set bLength to 9 instead of 7 for testing)
+            #   0,               # bRefresh (unused)
+            #   0,               # bSynchAddress (unused)
+              )
+        _pack('<BBBB' + num_out * 'B',
+              4 + num_out,  # bLength (size of the descriptor in bytes)
+              0x25,         # bDescriptorType=CS_ENDPOINT
+              1,            # bDescriptorSubtype=MS_GENERAL
+              num_out,      # bNumEmbMIDIJack (number of Embedded MIDI IN Jacks)
+              *out_jack_ids # baAssocJackID(1 to n) (IDs of the associated Embedded MIDI OUT Jacks)
+              )
+
+    def num_itfs(self):
+        return 2
+
+    def num_eps(self):
+        return 1
+
+    def on_open(self):
+        super().on_open()
+        # Kick off any transfers that may have queued while the device was not open
+        self._tx_xfer()
+        self._rx_xfer()
 
     def _tx_xfer(self):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
@@ -178,15 +264,3 @@ class MidiMulti(Interface):
                 pass
             i += 4
         _buffer.finish_read(i)
-
-    def num_itfs(self):
-        return 2
-
-    def num_eps(self):
-        return 2
-
-    def on_open(self):
-        super().on_open()
-        # Kick off any transfers that may have queued while the device was not open
-        self._tx_xfer()
-        self._rx_xfer()

@@ -36,12 +36,12 @@ import usb.device
 from usb.device.midi_multi_streaming import MidiMulti
 import time
 
-_NUM_PORTS    = const(3) # Set up 3 pairs of MIDI in and MIDI out ports
+_NUM_PORTS      = const(1) # Set up 3 pairs of MIDI IN and MIDI OUT ports
 _IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character
 _OUT_PORT_NAMES = ('OUT A', 'OUT B', 'OUT C') # Port names need to be longer than one character
-_MANUFACTURER = 'TestMaker'
-_PRODUCT      = 'TestMIDI'
-_SERIAL       = '123456'
+_MANUFACTURER   = 'TestMaker'
+_PRODUCT        = 'TestMIDI'
+_SERIAL         = '123456'
 
 class MIDIExample(MidiMulti):
 
