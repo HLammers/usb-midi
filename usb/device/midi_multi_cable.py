@@ -172,7 +172,9 @@ class MidiMulti(Interface):
                     2,                           # bDescriptorSubType=MIDI_IN_JACK
                     2,                           # bJackType=EXTERNAL
                     (in_ext_jack_id := jack_id), # bJackID (unique ID)
+######
                     iJack                        # iJack (index of string descriptor or 0 if none assigned)
+                    # 0                            # iJack (index of string descriptor or 0 if none assigned)
                     )
                 jack_id += 1
             # Embedded OUT Jack for each virtual OUT Cable (required - create dummy if no OUT port is to be exposed)
@@ -207,7 +209,9 @@ class MidiMulti(Interface):
                     1,              # bNrInputPins (number of input Pins on this MIDI OUT Jack)
                     in_emb_jack_id, # baSourceID(1) (ID of the Entity to which the first Pin is connected)
                     1,              # baSourcePIN(1) (output Pin number for the Entity to which the first Pin is connected)
-                    iJack           # iJack (index of string descriptor or 0 if none assigned)
+######
+                    iJack                        # iJack (index of string descriptor or 0 if none assigned)
+                    # 0                            # iJack (index of string descriptor or 0 if none assigned)
                     )
                 jack_id += 1
         # Single shared OUT Endpoint

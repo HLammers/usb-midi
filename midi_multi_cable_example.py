@@ -32,6 +32,7 @@
     CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'''
 
+import machine
 import usb.device
 from usb.device.midi_multi_cable import MidiMulti
 import time
@@ -42,7 +43,7 @@ _IN_PORT_NAMES  = ['IN A', 'IN B', 'IN C'] # Port names need to be longer than o
 _OUT_PORT_NAMES = ['OUT A', 'OUT B'] # Port names need to be longer than one character (needs to be of type List)
 _MANUFACTURER   = 'TestMaker'
 _PRODUCT        = 'TestMIDI'
-_SERIAL         = '123456'
+_SERIAL       = machine.unique_id()
 
 class MidiExample(MidiMulti):
 

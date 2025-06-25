@@ -1,4 +1,4 @@
-''' Example for multi-port USB MIDI 1.0 library for MicroPython based on multiple Endpoints approach
+''' Example for multi-port USB MIDI 1.0 library for MicroPython based on multiple virtual Cables approach
 
     This example demonstrates creating a custom MIDI device with 3 ports
 
@@ -34,16 +34,15 @@
 
 import machine
 import usb.device
-from usb.device.midi_multi_endpoint import MidiMulti
+from usb.device.midi_multi_cable import MidiMulti
 import time
 
-_NUM_IN       = const(3) # Set up 3 MIDI IN ports
-######
-# _NUM_OUT      = const(2) # and 2 MIDI OUT ports
-_NUM_OUT      = const(3) # and 3 MIDI OUT ports (only _NUM_IN == _NUM_OUT works for Windows)
-_PORT_NAMES   = ['Port A', 'Port B', 'Port C'] # Port names need to be longer than one character (needs to be of type List)
-_MANUFACTURER = 'TestMaker'
-_PRODUCT      = 'TestMIDI'
+_NUM_IN         = const(2) # Set up 3 MIDI IN ports
+_NUM_OUT        = const(2) # and 2 MIDI OUT ports
+_IN_PORT_NAMES  = ['IN A', 'IN B', 'IN C'] # Port names need to be longer than one character (needs to be of type List)
+_OUT_PORT_NAMES = ['OUT A', 'OUT B'] # Port names need to be longer than one character (needs to be of type List)
+_MANUFACTURER   = 'TestMaker'
+_PRODUCT        = 'TestMIDI'
 _SERIAL       = machine.unique_id()
 
 class MidiExample(MidiMulti):
@@ -53,7 +52,7 @@ class MidiExample(MidiMulti):
         print('Device opened by host')
 
     def setup_callbacks(self):
-        '''Assign callback functions to each MIDI port (Endpoint)'''
+        '''Assign callback functions to each MIDI port (Cable)'''
         _set_in_callback = self.set_in_callback
         _print_midi_in = self._print_midi_in
         for i in range(self.num_in):
@@ -74,15 +73,15 @@ class MidiExample(MidiMulti):
 
 # For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
-m = MidiExample(_NUM_IN, _NUM_OUT, _PORT_NAMES)
+m = MidiExample(_NUM_IN, _NUM_OUT, _IN_PORT_NAMES, _OUT_PORT_NAMES)
 m.setup_callbacks()
 # Remove builtin_driver=True or set it to False if you don’t want the MicroPython serial REPL available; manufacturer_str, product_str and
 # serial_str are optional (builtin_driver=True doesn’t work with Windows)
 # device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
 # isn’t needed
-usb.device.get().init(m, builtin_driver=False, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
+usb.device.get().init(m, builtin_driver=True, manufacturer_str=_MANUFACTURER, product_str=_PRODUCT, serial_str=_SERIAL,
                       device_class=0xEF, device_subclass=2, device_protocol=1)
-print('Waiting for USB host to configure the interface...', True)
+print('Waiting for USB host to configure the interface...')
 while not m.is_open():
     time.sleep_ms(100)
 print('Starting MIDI loop...')
