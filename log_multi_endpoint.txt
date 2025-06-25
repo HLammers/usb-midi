@@ -1,0 +1,17 @@
+Waiting for USB host to configure the interface...
+Device opened by host
+Starting MIDI loop...
+TX Note On on port 0: channel 0 note 60
+TX Note Off on port 0: channel 0 note 60
+TX CC on port 0: channel 0 ctrl 64 value 0
+increase control_val
+TX Note On on port 0: channel 0 note 60
+TX Note Off on port 0: channel 0 note 60
+TX CC on port 0: channel 0 ctrl 64 value 1
+increase control_val
+TX Note On on port 0: channel 0 note 60
+TX Note Off on port 0: channel 0 note 60
+TX CC on port 0: channel 0 ctrl 64 value 2
+increase control_val
+TX Note On on port 0: channel 0 note 60
+TX Note Off on port 0: channel 0 note 60

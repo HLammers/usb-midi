@@ -31,6 +31,8 @@ So far I&rsquo;ve demonstrated that multi-port USB MIDI works (be it without nam
 
 # Embedded vs external jacks
 
+TO BE CHANGED
+
 Embedded jacks (bJackType=0x01) represent &lsquo;virtual&rsquo; ports inside the device (e.g. software synth); external jacks (bJackType=0x02) represent physical connectors on the device (DIN, TRS, etc.). The USB MIDI specification do not require both &ndash; a device can have only embedded, only external, or both.
 
 The advice to always add both embedded and external jacks comes from a bug in early versions of iOS, which only worked if both were provided. This has long been resolved (apparently since iOS 7, released in 2023), so that is no longer relevant.

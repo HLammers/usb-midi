@@ -29,18 +29,18 @@
 
 from micropython import schedule
 from usb.device.core import Interface, Buffer
-######
-import sys
 
-_BUFFER_SIZE = const(16)
-_EP_PACKET_SIZE = const(64)
-_JACK_TYPE = const(1) # 1 = Embedded, 2 = External
-_MAX_ENDPOINTS = const(16)  # USB MIDI 1.0: up to 16 IN Endpoint and 16 OUT Endpoints
+_BUFFER_SIZE        = const(16)
+_EP_PACKET_SIZE     = const(64)
+######
+_ADD_EXTERNAL_JACKS = const(True) # External Jacks are optional, but adding them leads to more logical enumeration of the ports in Windows
+                                  # (which doesn’t show port names)
+_MAX_ENDPOINTS      = const(16)   # USB MIDI 1.0: up to 16 IN Endpoint and 16 OUT Endpoints
 
 class MidiMulti(Interface):
     '''USB MIDI 1.0 device class supporting multiple MIDI ports in the form of multiple endpoints'''
 
-    def __init__(self, num_in=1, num_out=1, in_names=None, out_names=None):
+    def __init__(self, num_in=1, num_out=1, port_names=None):
         if not 1 <= num_in <= _MAX_ENDPOINTS:
             raise ValueError(f'num_in ({num_in}) should be between 1 and {_MAX_ENDPOINTS}')
         if not 1 <= num_out <= _MAX_ENDPOINTS:
@@ -48,19 +48,12 @@ class MidiMulti(Interface):
         super().__init__()
         self.num_in = num_in
         self.num_out = num_out
-        self.num_jack_pairs = (num_jack_pairs := max(num_in, num_out))
-        in_names = in_names or [None for _ in range(num_in)]
-        while len(in_names) < num_in:
-            in_names.append(None)
-        self.in_names = in_names
-        out_names = out_names or [None for _ in range(num_out)]
-        while len(out_names) < num_in:
-            out_names.append(None)
-        self.out_names = out_names
-        in_names = self.in_names
-        out_names = self.out_names
-        self.endpoints = [MidiEndpoint(i, i < num_in, i < num_out, 1 + i, 1 + num_jack_pairs + i,
-                                       in_names[i], out_names[i]) for i in range(num_jack_pairs)]
+        self.num_jack_sets = (num_jack_sets := max(num_in, num_out))
+        port_names = port_names or [None for _ in range(num_jack_sets)]
+        while len(port_names) < num_jack_sets:
+            port_names.append(None)
+        self.port_names = port_names
+        self.endpoints = [MidiEndpoint(i, i < num_in, i < num_out, 1 + i, num_jack_sets, self.port_names[i]) for i in range(num_jack_sets)]
 
     def set_in_callback(self, port, cb):
         '''Register a callback for received MIDI messages on a port (Endpoint)'''
@@ -112,7 +105,7 @@ class MidiMulti(Interface):
               itf_num + 1 # baInterfaceNr(1) (assign MIDIStreming interface 1)
               )
         # MIDI Streaming interface
-        bNumEndpoints = (num_in := self.num_in) + (num_out := self.num_out)
+        bNumEndpoints = self.num_in + self.num_out
 ###### for testing
         iInterface = len(strs)
         strs.append(f'MS0')
@@ -121,13 +114,12 @@ class MidiMulti(Interface):
                    1,             # bInterfaceClass=AUDIO
                    3,             # bInterfaceSubClass=MIDISTREAMING
                    0,             # bInterfaceProtocol (unused)
+######
                 #    0              # iInterface (index of string descriptor or 0 if none assigned)
-iInterface
+                   iInterface     # iInterface (index of string descriptor or 0 if none assigned)
                    )
         # Class-specific MIDI Streaming interface header
-######
-        # wTotalLength = 7 + num_in * 6 + num_out * 9
-        wTotalLength = 7 + self.num_jack_pairs * (6 + 9)
+        wTotalLength = 7 + 2 * self.num_jack_sets * (6 + 9) if _ADD_EXTERNAL_JACKS else 7 + self.num_jack_sets * (6 + 9)
         _pack('<BBBHH',
               7,           # bLength (size of the descriptor in bytes)
               0x24,        # bDescriptorType=CS_INTERFACE
@@ -142,7 +134,7 @@ iInterface
         return 2
 
     def num_eps(self):
-        return self.num_jack_pairs
+        return self.num_jack_sets
 
     def on_open(self):
         super().on_open()
@@ -152,15 +144,14 @@ iInterface
 class MidiEndpoint(Interface):
     '''Class providing one Jacks and Endpoints for one IN and/or OUT port'''
 
-    def __init__(self, port_index, add_in, add_out, in_jack_id, out_jack_id, in_name=None, out_name=None):
+    def __init__(self, port_index, add_in, add_out, first_jack_id, num_jack_sets, port_name=None):
         super().__init__()
         self.port_index = port_index
         self.add_in = add_in
         self.add_out = add_out
-        self.in_jack_id = in_jack_id
-        self.out_jack_id = out_jack_id
-        self.in_name = in_name
-        self.out_name = out_name
+        self.first_jack_id = first_jack_id
+        self.num_jack_sets = num_jack_sets
+        self.port_name = port_name
         self.ep_out = None
         self.ep_in = None
         self._rx_buffer = Buffer(_BUFFER_SIZE)
@@ -187,79 +178,96 @@ class MidiEndpoint(Interface):
         return True
 
     def desc_cfg(self, desc, ep_num, strs):
+        in_emb_jack_id = self.first_jack_id
+        in_ext_jack_id = in_emb_jack_id + 1
+        out_emb_jack_id = (in_ext_jack_id if _ADD_EXTERNAL_JACKS else in_emb_jack_id) + 1
+        out_ext_jack_id = out_emb_jack_id + 1
         _pack = desc.pack
-        # IN Jack (required - create dummy if no IN port is to be exposed)
-        if (name := self.in_name) is None:
+        # Embedded IN Jack (required - create dummy if no IN port is to be exposed)
+        if (name := self.port_name) is None:
             iJack = 0
         else:
             iJack = len(strs)
             strs.append(name)
         _pack('<BBBBBB',
-              6,               # bLength (size of the descriptor in bytes)
+              6,              # bLength (size of the descriptor in bytes)
+              0x24,           # bDescriptorType=CS_INTERFACE
+              2,              # bDescriptorSubType=MIDI_IN_JACK
+              1,              # bJackType=EMBEDDED
+              in_emb_jack_id, # bJackID (unique ID)
+              iJack           # iJack (index of string descriptor or 0 if none assigned)
+              )
+        # External IN Jack (create dummy if no IN port is to be exposed)
+        if _ADD_EXTERNAL_JACKS:
+            _pack('<BBBBBB',
+                6,              # bLength (size of the descriptor in bytes)
+                0x24,           # bDescriptorType=CS_INTERFACE
+                2,              # bDescriptorSubType=MIDI_IN_JACK
+                2,              # bJackType=EXTERNAL
+                in_ext_jack_id, # bJackID (unique ID)
+                0               # iJack (index of string descriptor or 0 if none assigned)
+                )
+        # Embedded OUT Jack (required - create dummy if no OUT port is to be exposed)
+        in_jack_id = in_ext_jack_id if _ADD_EXTERNAL_JACKS else in_emb_jack_id
+        _pack('<BBBBBBBBB',
+              9,               # bLength (size of the descriptor in bytes)
               0x24,            # bDescriptorType=CS_INTERFACE
-              2,               # bDescriptorSubType=MIDI_IN_JACK
-              _JACK_TYPE,      # bJackType (EMBEDDED=1, EXTERNAL=2)
-              self.in_jack_id, # bJackID (unique ID)
+              3,               # bDescriptorSubType=MIDI_OUT_JACK
+              1,               # bJackType=(EMBEDDED
+              out_emb_jack_id, # bJackID (unique ID)
+              1,               # bNrInputPins (number of input Pins on this MIDI OUT Jack)
+              in_jack_id,      # baSourceID(1) (ID of the Entity to which the first Pin is connected)
+              1,               # baSourcePIN(1) (output Pin number for the Entity to which the first Pin is connected)
               iJack            # iJack (index of string descriptor or 0 if none assigned)
               )
-        # OUT Jack (required - create dummy if no OUT port is to be exposed)
-        if (name := self.out_name) is None:
-            iJack = 0
-        else:
-            iJack = len(strs)
-            strs.append(name)
-        _pack('<BBBBBBBBB',
-              9,                # bLength (size of the descriptor in bytes)
-              0x24,             # bDescriptorType=CS_INTERFACE
-              3,                # bDescriptorSubType=MIDI_OUT_JACK
-              _JACK_TYPE,       # bJackType (EMBEDDED=1, EXTERNAL=2)
-              self.out_jack_id, # bJackID (unique ID)
-              1,                # bNrInputPins (number of input Pins on this MIDI OUT Jack)
-              self.in_jack_id,  # baSourceID(1) (ID of the Entity to which the first Pin is connected)
-              1,                # baSourcePIN(1) (output Pin number for the Entity to which the first Pin is connected)
-              iJack             # iJack (index of string descriptor or 0 if none assigned)
-              )
+        # External OUT Jack (create dummy if no OUT port is to be exposed)
+        if _ADD_EXTERNAL_JACKS:
+            _pack('<BBBBBBBBB',
+                9,               # bLength (size of the descriptor in bytes)
+                0x24,            # bDescriptorType=CS_INTERFACE
+                3,               # bDescriptorSubType=MIDI_OUT_JACK
+                2,               # bJackType=EXTERNAL
+                out_ext_jack_id, # bJackID (unique ID)
+                1,               # bNrInputPins (number of input Pins on this MIDI OUT Jack)
+                in_emb_jack_id,  # baSourceID(1) (ID of the Entity to which the first Pin is connected)
+                1,               # baSourcePIN(1) (output Pin number for the Entity to which the first Pin is connected)
+                0                # iJack (index of string descriptor or 0 if none assigned)
+                )
         # OUT Endpoint
-        self.ep_out = ep_num
         if self.add_in:
+            self.ep_out = ep_num
             _pack('<BBBBHB',
                   7,               # bLength (size of the descriptor in bytes)
                   5,               # bDescriptorType=ENDPOINT
                   ep_num,          # bEndpointAddress (0 to 15 with bit7=0 for OUT)
                   2,               # bmAttributes (2 for Bulk, not shared; alternative: 3 for Interval)
                   _EP_PACKET_SIZE, # wMaxPacketSize
-                  0,                # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
-###### TODO: test if needed (set bLength to 9 instead of 7 for testing)
-                #   0,               # bRefresh (unused)
-                #   0,               # bSynchAddress (unused)
+                  0                # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
                   )
             _pack('<BBBBB',
                   5,              # bLength (size of the descriptor in bytes)
                   0x25,           # bDescriptorType=CS_ENDPOINT
                   1,              # bDescriptorSubtype=MS_GENERAL
                   1,              # bNumEmbMIDIJack (number of Embedded MIDI IN Jacks)
-                  self.in_jack_id # baAssocJackID(1) (ID of the first associated Embedded MIDI IN Jack)
+                  in_emb_jack_id # baAssocJackID(1) (ID of the first associated Embedded MIDI IN Jack)
                   )
         # IN Endpoint
-        self.ep_in = (ep_in := ep_num | 0x80)
         if self.add_out:
+            self.ep_in = (ep_in := ep_num | 0x80)
             _pack('<BBBBHB',
                   7,               # bLength (size of the descriptor in bytes)
                   5,               # bDescriptorType=ENDPOINT
                   ep_in,           # bEndpointAddress (0 to 15 with bit7=1 for IN: 128 to 143)
                   2,               # bmAttributes (2 for Bulk, not shared; alternative: 3 for Interval)
                   _EP_PACKET_SIZE, # wMaxPacketSize
-                  0,                # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
-###### TODO: test if needed (set bLength to 9 instead of 7 for testing)
-                #   0,               # bRefresh (unused)
-                #   0,               # bSynchAddress (unused)
+                  0                # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
                   )
             _pack('<BBBBB',
-                  5,               # bLength (size of the descriptor in bytes)
-                  0x25,            # bDescriptorType=CS_ENDPOINT
-                  1,               # bDescriptorSubtype=MS_GENERAL
-                  1,               # bNumEmbMIDIJack (number of Embedded MIDI IN Jacks)
-                  self.out_jack_id # baAssocJackID(1) (ID of the first associated Embedded MIDI OUT Jack)
+                  5,              # bLength (size of the descriptor in bytes)
+                  0x25,           # bDescriptorType=CS_ENDPOINT
+                  1,              # bDescriptorSubtype=MS_GENERAL
+                  1,              # bNumEmbMIDIJack (number of Embedded MIDI IN Jacks)
+                  out_emb_jack_id # baAssocJackID(1) (ID of the first associated Embedded MIDI OUT Jack)
                   )
 
     def on_open(self):
@@ -271,7 +279,7 @@ class MidiEndpoint(Interface):
     def _tx_xfer(self):
         '''Keep an active IN transfer to send data to the host, whenever there is data to send'''
         _buffer = self._tx_buffer
-        if self.is_open() and not self.xfer_pending(ep_in := self.ep_in) and _buffer.readable():
+        if (ep_in := self.ep_in) is not None and self.is_open() and not self.xfer_pending(ep_in) and _buffer.readable():
             self.submit_xfer(ep_in, _buffer.pend_read(), self._tx_cb)
 
     def _tx_cb(self, ep, res, num_bytes):
@@ -282,7 +290,7 @@ class MidiEndpoint(Interface):
     def _rx_xfer(self):
         '''Keep an active OUT transfer to receive MIDI events from the host'''
         _buffer = self._rx_buffer
-        if self.is_open() and not self.xfer_pending(ep_out := self.ep_out) and _buffer.writable():
+        if (ep_out := self.ep_out) is not None and self.is_open() and not self.xfer_pending(ep_out) and _buffer.writable():
             self.submit_xfer(ep_out, _buffer.pend_write(), self._rx_cb)
 
     def _rx_cb(self, ep, res, num_bytes):
@@ -307,8 +315,3 @@ class MidiEndpoint(Interface):
                 pass
             i += 4
         _buffer.finish_read(i)
-
-######
-def log(msg):
-    with open('/log.txt', 'a') as f:
-        f.write(msg + '\n')

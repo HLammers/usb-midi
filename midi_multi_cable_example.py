@@ -38,8 +38,8 @@ import time
 
 _NUM_IN         = const(3) # Set up 3 MIDI IN ports
 _NUM_OUT        = const(2) # and 2 MIDI OUT ports
-_IN_PORT_NAMES  = ('IN A', 'IN B', 'IN C') # Port names need to be longer than one character
-_OUT_PORT_NAMES = ('OUT A', 'OUT B') # Port names need to be longer than one character
+_IN_PORT_NAMES  = ['IN A', 'IN B', 'IN C'] # Port names need to be longer than one character (needs to be of type List)
+_OUT_PORT_NAMES = ['OUT A', 'OUT B'] # Port names need to be longer than one character (needs to be of type List)
 _MANUFACTURER   = 'TestMaker'
 _PRODUCT        = 'TestMIDI'
 _SERIAL         = '123456'
@@ -89,12 +89,12 @@ _NOTE = const(60)
 _CONTROLLER = const(64)
 control_val = 0
 while m.is_open():
-    for port in range(_NUM_OUT):
-        print(f'TX Note On on port {port}: channel {_CHANNEL} note {_NOTE}')
-        m.note_on(port, _CHANNEL, _NOTE) # Velocity is an optional third argument
+    for i, port in enumerate(range(_NUM_OUT)):
+        print(f'TX Note On on port {port}: channel {_CHANNEL} note {_NOTE + i}')
+        m.note_on(port, _CHANNEL, _NOTE + i) # Velocity is an optional third argument
         time.sleep(0.5)
-        print(f'TX Note Off on port {port}: channel {_CHANNEL} note {_NOTE}')
-        m.note_off(port, _CHANNEL, _NOTE)
+        print(f'TX Note Off on port {port}: channel {_CHANNEL} note {_NOTE + i}')
+        m.note_off(port, _CHANNEL, _NOTE + i)
         time.sleep(1)
         print(f'TX CC on port {port}: channel {_CHANNEL} ctrl {_CONTROLLER} value {control_val}')
         m.control_change(port, _CHANNEL, _CONTROLLER, control_val)
