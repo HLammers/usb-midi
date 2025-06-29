@@ -44,36 +44,38 @@ _MANUFACTURER = 'TestMaker'
 _PRODUCT      = 'TestMIDI'
 _SERIAL       = machine.unique_id()
 
+# Global variables
+channel = 0
+note = 60
+
 class MIDIExample(MidiMulti):
+
+    def __init__(self, num_in=1, num_out=1, port_names=None):
+        super().__init__(num_in, num_out, port_names, self._print_midi_in)
 
     def on_open(self):
         super().on_open()
         print('Device opened by host')
 
-    def setup_callbacks(self):
-        '''Assign callback functions to each MIDI port'''
-        _set_in_callback = self.set_in_callback
-        _print_midi_in = self._print_midi_in
-        for i in range(self.num_in):
-            _set_in_callback(i, _print_midi_in)
-
-    def _print_midi_in(self, port, cin, byte_0, byte_1, byte_2):
+    def _print_midi_in(self, port, data_packet):
         '''Example callback function which is called each time a MIDI message is received'''
-        command = byte_0 & 0xF0
+        global channel, note
+        # cin = data_packet[0] & 0x0F
+        command = (byte_0 := data_packet[1]) & 0xF0
         channel = byte_0 & 0x0F
-        if command == 0x90 and byte_2 != 0: # Note On
-            print(f'RX Note On on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
-        elif command == 0x80 or (command == 0x90 and byte_2 == 0): # Note Off
-            print(f'RX Note Off on port {port}: channel {channel} note {byte_1} velocity {byte_2}')
+        if command == 0x90 and data_packet[3] != 0: # Note On
+            print(f'RX Note On on port {port}: channel {channel} note {data_packet[2]} velocity {data_packet[3]}')
+            note = data_packet[2]
+        elif command == 0x80 or (command == 0x90 and data_packet[3] == 0): # Note Off
+            print(f'RX Note Off on port {port}: channel {channel} note {data_packet[2]} velocity {data_packet[3]}')
         elif command == 0xB0: # Control Change
-            print(f'RX CC on port {port}: channel {channel} ctrl {byte_1} value {byte_2}')
+            print(f'RX CC on port {port}: channel {channel} ctrl {data_packet[2]} value {data_packet[3]}')
         else:
-            print(f'RX MIDI message on port {port}: {byte_0}, {byte_1}, {byte_2}')
+            print(f'RX MIDI message on port {port}: {byte_0}, {data_packet[2]}, {data_packet[3]}')
 
 # For when using VSCode: delay to allow the REPL to connect before main.py is ran
 time.sleep_ms(1000)
 m = MIDIExample(_NUM_IN, _NUM_OUT, _PORT_NAMES)
-m.setup_callbacks()
 # Remove builtin_driver=True or set it to False if you don’t want the MicroPython serial REPL available; manufacturer_str, product_str and
 # serial_str are optional (builtin_driver=True doesn’t work with Windows)
 # device_class=0xEF, device_subclass=2, device_protocol=1 are required because builtin_driver=True adds an IAD - without builtin_driver=True it
@@ -84,20 +86,18 @@ print('Waiting for USB host to configure the interface...')
 while not m.is_open():
     time.sleep_ms(100)
 print('Starting MIDI loop...')
-_CHANNEL = const(0)
-_NOTE = const(60)
 _CONTROLLER = const(64)
 control_val = 0
 while m.is_open():
     for i, port in enumerate(range(_NUM_OUT)):
-        print(f'TX Note On on port {port}: channel {_CHANNEL} note {_NOTE + i}')
-        m.note_on(port, _CHANNEL, _NOTE + i) # Velocity is an optional third argument
+        print(f'TX Note On on port {port}: channel {channel} note {note + i}')
+        m.note_on(port, channel, note + i) # Velocity is an optional third argument
         time.sleep(0.5)
-        print(f'TX Note Off on port {port}: channel {_CHANNEL} note {_NOTE + i}')
-        m.note_off(port, _CHANNEL, _NOTE + i)
+        print(f'TX Note Off on port {port}: channel {channel} note {note + i}')
+        m.note_off(port, channel, note + i)
         time.sleep(1)
-        print(f'TX CC on port {port}: channel {_CHANNEL} ctrl {_CONTROLLER} value {control_val}')
-        m.control_change(port, _CHANNEL, _CONTROLLER, control_val)
+        print(f'TX CC on port {port}: channel {channel} ctrl {_CONTROLLER} value {control_val}')
+        m.control_change(port, channel, _CONTROLLER, control_val)
         control_val = (control_val + 1) & 0x7F
         time.sleep(1)
 print('USB host has reset device, example done')

@@ -674,6 +674,8 @@ class Descriptor:
         self,
         bInterfaceNumber,
         bNumEndpoints,
+######
+        bAlternateSetting=0,
         bInterfaceClass=_INTERFACE_CLASS_VENDOR,
         bInterfaceSubClass=_INTERFACE_SUBCLASS_NONE,
         bInterfaceProtocol=_PROTOCOL_NONE,
@@ -693,7 +695,8 @@ class Descriptor:
             _STD_DESC_INTERFACE_LEN,  # bLength
             _STD_DESC_INTERFACE_TYPE,  # bDescriptorType
             bInterfaceNumber,
-            0,  # bAlternateSetting, not currently supported
+######
+            bAlternateSetting,
             bNumEndpoints,
             bInterfaceClass,
             bInterfaceSubClass,
