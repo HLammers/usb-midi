@@ -124,7 +124,7 @@ class MidiMulti(Interface):
               7,           # bLength (size of the descriptor in bytes)
               0x24,        # bDescriptorType=CS_INTERFACE
               1,           # bDescriptorSubType=MS_HEADER
-              0x0100,     # bcdADC=MS_MIDI_1_0
+              0x0100,      # bcdADC=MS_MIDI_1_0
               wTotalLength # wTotalLength (total size of class specific descriptors)
         )
 ######
@@ -192,17 +192,13 @@ class MidiMulti(Interface):
                 jack_id += 1
         # Single shared OUT Endpoint (USB MIDI 1.0)
         self.ep_out = ep_num
-######
-        print('ep_num', ep_num)
         _pack('<BBBBHB',
               9,               # bLength (size of the descriptor in bytes)
               5,               # bDescriptorType=ENDPOINT
-###### check: example used 0x03
               ep_num,          # bEndpointAddress (0 to 15 with bit7=0 for OUT)
               2,               # bmAttributes (2 for Bulk, not shared; alternative: 3 for Interval)
               _EP_PACKET_SIZE, # wMaxPacketSize
               0,               # bInterval (ignored for Bulk - set to 0; alternative: 1 for Interval)
-###### needed?
               0,               # bRefresh (unused)
               0                # bSynchAddress (unused)
         )
@@ -250,7 +246,7 @@ class MidiMulti(Interface):
               0x24,   # bDescriptorType=CS_INTERFACE
               1,      # bDescriptorSubType=MS_HEADER
               0x0200, # bcdADC=MS_MIDI_2_0
-              7       # wTotalLength (total size of class specific descriptors)
+              7       # wTotalLength (needs to match bLength)
         )
         # OUT Endpoint (USB MIDI 2.0)
 ######
@@ -268,7 +264,7 @@ class MidiMulti(Interface):
               0x25,                              # bDescriptorType=CS_ENDPOINT
               2,                                 # bDescriptorSubtype=MS_GENERAL_2_0
               num_ports,                         # bNumGrpTrmBlock (number of Group Terminal Blocks)
-              *[i + 1 for i in range(num_ports)] # baAssoGrpTrmBlkID(1 to n) (IDs of the associated Group Terminal Blocks)
+              *[i + 1 for i in range(num_ports)] # baAssocGrpTrmBlkID(1 to n) (IDs of the associated Group Terminal Blocks)
         )
         # IN Endpoint (USB MIDI 2.0)
 ######
@@ -286,7 +282,7 @@ class MidiMulti(Interface):
               0x25,            # bDescriptorType=CS_ENDPOINT
               2,               # bDescriptorSubtype=MS_GENERAL_2_0
               num_ports,       # bNumGrpTrmBlock (number of Group Terminal Blocks)
-              *[i + 1 for i in range(num_ports)] # baAssoGrpTrmBlkID(1 to n) (IDs of the associated Group Terminal Blocks)
+              *[i + 1 for i in range(num_ports)] # baAssocGrpTrmBlkID(1 to n) (IDs of the associated Group Terminal Blocks)
         )
         # Groups for each IN and OUT Port (USB MIDI 2.0)
         for i, name in enumerate(port_names):
@@ -299,7 +295,7 @@ class MidiMulti(Interface):
                 strs.append(name + ' 2.0')
             wTotalLength = 5 + num_ports * 13
             _pack('<BBBH',
-                  6,           # bLength (size of the descriptor in bytes)
+                  5,           # bLength (size of the descriptor in bytes)
                   0x26,        # bDescriptorType=CS_GR_TRM_BLOCK
                   1,           # bDescriptorSubType=GR_TRM_BLOCK_HEADER
                   wTotalLength # wTotalLength (total size of class specific descriptors)
@@ -313,7 +309,9 @@ class MidiMulti(Interface):
                   0,          # nGroupTrm (first member Group Terminal in this block; must be in range 0 to 15)
                   num_ports,  # nNumGroupTrm (number of member Group Terminals spanned; must be in range 1 to 15 - nGroupTrm)
                   iBlockItem, # iBlockItem (index of string descriptor or 0 if none assigned???)
-                  3,          # bMIDIProtocol=MIDI_1_0_UP_TO_128_BITS (altenative: MIDI_1_0_UP_TO_64_BITS = 1)
+######
+                #   3,          # bMIDIProtocol=MIDI_1_0_UP_TO_128_BITS (altenative: MIDI_1_0_UP_TO_64_BITS = 1)
+0,
                   0,          # wMaxInputBandwidth (0 for unknown or not fixed, alternative: 1 for rounded version of 31.25kb/s)
                   0,          # wMaxOutputBandwidth (0 for unknown or not fixed, alternative: 1 for rounded version of 31.25kb/s)
             )
