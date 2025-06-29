@@ -44,6 +44,8 @@ class MidiMulti(Interface):
         super().__init__()
         self.num_ports = num_ports
         port_names = port_names or [None for _ in range(num_ports)]
+        if (n := len(port_names)) > num_ports:
+            del port_names[num_ports - n:]
         while len(port_names) < num_ports:
             port_names.append(None)
         self.port_names = port_names
@@ -241,13 +243,48 @@ class MidiMulti(Interface):
             iInterface         = 0            # Index of string descriptor or 0 if none assigned
         )
         # Class-specific MIDI Streaming interface header for Alternate Setting 1 (USB MIDI 2.0)
+######
+        wTotalLength = 17 + num_ports * 18
         _pack('<BBBHH',
               7,      # bLength (size of the descriptor in bytes)
               0x24,   # bDescriptorType=CS_INTERFACE
               1,      # bDescriptorSubType=MS_HEADER
               0x0200, # bcdADC=MS_MIDI_2_0
-              7       # wTotalLength (needs to match bLength)
+######
+            #   7       # wTotalLength (needs to match bLength)
+              wTotalLength # wTotalLength (total size of class specific descriptors)
         )
+        # Groups for each IN and OUT Port (USB MIDI 2.0)
+        for i, name in enumerate(port_names):
+            # Embedded IN Jack for each virtual OUT Cable (required - create dummy if no OUT port is to be exposed)
+            if name is None:
+                iBlockItem = 0
+            else:
+                iBlockItem = len(strs)
+######
+                strs.append(name + ' 2.0')
+            wTotalLength = 5 + num_ports * 13
+            _pack('<BBBH',
+                  5,           # bLength (size of the descriptor in bytes)
+                  0x26,        # bDescriptorType=CS_GR_TRM_BLOCK
+                  1,           # bDescriptorSubType=GR_TRM_BLOCK_HEADER
+                  wTotalLength # wTotalLength (total size of class specific descriptors)
+            )
+            _pack('<BBBBBBBBBHH',
+                  13,         # bLength (size of the descriptor in bytes)
+                  0x26,       # bDescriptorType=CS_GR_TRM_BLOCK
+                  2,          # bDescriptorSubType=GR_TRM_BLOCK
+                  i + 1,      # bGrpTrmBlkID (unique ID)                
+                  0,          # bGrpTrmBlkType=BIDIRECTIONAL (alternatives: INPUT_ONLY = 1 OUTPUT_ONLY = 2)
+                  0,          # nGroupTrm (first member Group Terminal in this block; must be in range 0 to 15)
+                  num_ports,  # nNumGroupTrm (number of member Group Terminals spanned; must be in range 1 to 15 - nGroupTrm)
+                  iBlockItem, # iBlockItem (index of string descriptor or 0 if none assigned???)
+######
+                #   3,          # bMIDIProtocol=MIDI_1_0_UP_TO_128_BITS (altenative: MIDI_1_0_UP_TO_64_BITS = 1)
+0,
+                  0,          # wMaxInputBandwidth (0 for unknown or not fixed, alternative: 1 for rounded version of 31.25kb/s)
+                  0,          # wMaxOutputBandwidth (0 for unknown or not fixed, alternative: 1 for rounded version of 31.25kb/s)
+            )
         # OUT Endpoint (USB MIDI 2.0)
 ######
         # self.ep_out = ep_num
@@ -284,37 +321,6 @@ class MidiMulti(Interface):
               num_ports,       # bNumGrpTrmBlock (number of Group Terminal Blocks)
               *[i + 1 for i in range(num_ports)] # baAssocGrpTrmBlkID(1 to n) (IDs of the associated Group Terminal Blocks)
         )
-        # Groups for each IN and OUT Port (USB MIDI 2.0)
-        for i, name in enumerate(port_names):
-            # Embedded IN Jack for each virtual OUT Cable (required - create dummy if no OUT port is to be exposed)
-            if name is None:
-                iBlockItem = 0
-            else:
-                iBlockItem = len(strs)
-######
-                strs.append(name + ' 2.0')
-            wTotalLength = 5 + num_ports * 13
-            _pack('<BBBH',
-                  5,           # bLength (size of the descriptor in bytes)
-                  0x26,        # bDescriptorType=CS_GR_TRM_BLOCK
-                  1,           # bDescriptorSubType=GR_TRM_BLOCK_HEADER
-                  wTotalLength # wTotalLength (total size of class specific descriptors)
-            )
-            _pack('<BBBBBBBBBHH',
-                  13,         # bLength (size of the descriptor in bytes)
-                  0x26,       # bDescriptorType=CS_GR_TRM_BLOCK
-                  2,          # bDescriptorSubType=GR_TRM_BLOCK
-                  i + 1,      # bGrpTrmBlkID (unique ID)                
-                  0,          # bGrpTrmBlkType=BIDIRECTIONAL (alternatives: INPUT_ONLY = 1 OUTPUT_ONLY = 2)
-                  0,          # nGroupTrm (first member Group Terminal in this block; must be in range 0 to 15)
-                  num_ports,  # nNumGroupTrm (number of member Group Terminals spanned; must be in range 1 to 15 - nGroupTrm)
-                  iBlockItem, # iBlockItem (index of string descriptor or 0 if none assigned???)
-######
-                #   3,          # bMIDIProtocol=MIDI_1_0_UP_TO_128_BITS (altenative: MIDI_1_0_UP_TO_64_BITS = 1)
-0,
-                  0,          # wMaxInputBandwidth (0 for unknown or not fixed, alternative: 1 for rounded version of 31.25kb/s)
-                  0,          # wMaxOutputBandwidth (0 for unknown or not fixed, alternative: 1 for rounded version of 31.25kb/s)
-            )
 
     def num_itfs(self):
         return 2

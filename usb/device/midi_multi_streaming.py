@@ -51,6 +51,8 @@ class MidiMulti(Interface):
         self.num_out = num_out
         self.num_str_itfs = (num_str_itfs := max(num_in, num_out))
         port_names = port_names or [None for _ in range(num_str_itfs)]
+        if (n := len(port_names)) > num_str_itfs:
+            del port_names[num_str_itfs - n:]
         while len(port_names) < num_str_itfs:
             port_names.append(None)
         self.port_names = port_names
