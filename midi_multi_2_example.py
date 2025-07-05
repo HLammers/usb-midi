@@ -1,5 +1,4 @@
-''' Example for multi-port USB MIDI 2.0 library for MicroPython, accepting MIDI 1.0 Protocol messages, with fallback to USB MIDI 1.0 with
-    multiple Cables
+''' Example for multi-port USB MIDI 2.0 library for MicroPython, accepting MIDI 1.0 Protocol messages
 
     This example demonstrates creating a custom MIDI device with 3 ports
 

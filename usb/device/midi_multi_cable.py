@@ -48,9 +48,9 @@ class MidiMulti(Interface):
 
     def __init__(self, num_in=1, num_out=1, port_names=None, in_callback=None):
         if not 1 <= num_in <= _MAX_CABLES:
-            raise ValueError(f'num_in ({num_in}) should be between 1 and {_MAX_CABLES}')
+            raise ValueError(f'num_in ({num_in}) must be >= 1 and <= {_MAX_CABLES}')
         if not 1 <= num_out <= _MAX_CABLES:
-            raise ValueError(f'num_out ({num_out}) should be between 1 and {_MAX_CABLES}')
+            raise ValueError(f'num_out ({num_out}) must be >= 1 and <= {_MAX_CABLES}')
         super().__init__()
         self.num_in = num_in
         self.num_out = num_out
