@@ -1,4 +1,10 @@
-WORK IN PROGRESS, NOT READY TO USE!
+<header>
+
+# Developing a USB + DIN MIDI Library
+
+&copy; 2025 Harm Lammers
+</header>
+<main>
 
 # Introduction
 
@@ -31,11 +37,13 @@ This project builds upon:
 
 ## Wish List
 
+Ideally this is what I wanted to achieve:
+
 * Be able to specify how many MIDI in and out ports will be visible to the host
 * Make each port show up with its own name
 * Allow the number of MIDI in ports to be different from the number of MIDI out ports
 
-# Comparing Multi-Port USB Midi Approaches
+## Comparing Multi-Port USB Midi Approaches
 
 There are two ways to implement multiple MIDI ports over a single USB connection (using the USB MIDI 1.0 protocol):
 
@@ -43,6 +51,8 @@ There are two ways to implement multiple MIDI ports over a single USB connection
 2. A *single-interface, multiple virtual cables model* which uses only a single MIDI Streaming interface and implements each port as a pair of Jacks and Endpoints within that MIDI Streaming interface (see [midi_multi_cable_example.py](/midi_multi_cable_example.py))
 
 (Theoretically there is a third approach, based on a single MIDI Streaming interface with multiple Endpoints, but this isn&rsquo;t supported by Window, nor by Linux, and probably neither by macOS).
+
+I&rsquo;ve tested both approaches in different variations to find out what does and what doesn&rsquo;t work:
 
 ||Windows|Linux|macOS|
 |-|-|-|-|
@@ -52,14 +62,22 @@ There are two ways to implement multiple MIDI ports over a single USB connection
 |<i>&emsp;Asymmetric set-up<br/>&emsp;(different number of IN and OUT ports)</i>|Crashes|Works|Should work (Not tested)|
 |<i>&emsp;With Embedded Jacks only</i>|Works|Works|Should work (not tested)|
 |<i>&emsp;With Embedded and External Jacks</i>|Works|Works|Should work (not tested)|
-|<i>&emsp;With built-in driver</i>|Crashes|Works|Not tested|
+|<i>&emsp;With built-in driver (used for REPL)</i>|Crashes|Works|Not tested|
 |<b>Multi-port MIDI using multiple MIDI Streaming interfaces</b>|Works|Works|Should work (not tested)|
 |<i>&emsp;With port names</i>|Port names ignored (and crashes on single-character names)|Works|Should work (not tested)|
 |<i>&emsp;With different IN and OUT names</i>|N/A|Doesn&rsquo;t work|Not tested|
 |<i>&emsp;Asymmetric set-up<br/>&emsp;(different number of IN and OUT ports)</i>|Crashes|Works|Should work (Not tested)|
 |<i>&emsp;With Embedded Jacks only</i>|Works|Works|Should work (not tested)|
 |<i>&emsp;With Embedded and External Jacks</i>|Works|Works|Should work (not tested)|
-|<i>&emsp;With built-in driver</i>|Crashes|Works|Not tested|
+|<i>&emsp;With built-in driver (used for REPL)</i>|Crashes|Works|Not tested|
+
+### Note on Embedded and External Jacks
+
+One of the building block of a USB MIDI 1.0 set-up are so called &lsquo;Jacks&rsquo;. Both in the multi-interface and the multi-cable implementation, each MIDI in and out port is linked to one or a set of Jacks. They come in two flavours: Embedded Jacks (`bJackType=0x01`) are described in the [USB 1.0 device class definition](https://www.usb.org/sites/default/files/midi10.pdf) as to represent &lsquo;virtual&rsquo; ports inside the device (e.g. software synth) and External Jacks (`bJackType=0x02`) are described to represent physical connectors on the device (DIN, TRS, etc.). USB MIDI 1.0 requires at least Embedded Jacks, optionally linked to External Jacks.
+
+The often found advice to always add both Embedded and External Jacks seems to comes from a bug in early versions of iOS, which only worked if both were provided. This has long been resolved (apparently since iOS 7, released in 2013), so that is no longer relevant.
+
+To be fully compliant with the USB MIDI specifications it would be best to use Embedded plus External Jacks for ports which map to MIDI DIN/TRS connectors and only Embedded Jacks for all other cases, although functionally it doesn&rsquo;t matter which one is used. Eventually I will make it possible to specify whether to include External Jacks for each port.
 
 ## USB MIDI 2.0
 
@@ -67,18 +85,17 @@ There is one more approach to naming individual ports: switching from USB MIDI 1
 
 ## Conclusion: Use a Multi-Cable Approach
 
-The conclusion is that the multi-interface model is not recommended for cross-platform compatibility and that for naming individual ports should be treated as impossible (unless you&rsquo;re happy sacrifice any compatibility with Windows).
+Since
+
+* both the multi-interface model and the multi-cable approach work equally well, but a multi-cable approach is more efficient;
+* ports could be named if the names are at least 2 characters long, but those names will be ignored by Windows;
+* asymmetric set-ups (not the same number of in and out ports) are not recognized by Windows;
+* combining a MIDI device with the built-in driver used for REPL doesn&rsquo;t work for Windows,
+
+my conclusion is that for cross-platform compatibility, the best is to use a multi-cable model, equal number of in and out ports, no built-in driver (so no possibility to debug using the REPL) and optional naming of individual ports (to confirmed that this works for macOS as well).
 
 # Next Step
 
-So far I&rsquo;ve demonstrated that multi-port USB MIDI works (be it without naming those ports). My next step is to integrate this with the UART/PIO MIDI drivers as built into [Cybo-Drummer](https://github.com/HLammers/cybo-drummer), because that&rsquo;s what I&rsquo;m doing all this work for.
+So far I&rsquo;ve demonstrated that multi-port USB MIDI works. My next step will be to rework the input and output data flow, such that it could be merged with the DIN MIDI data flow. I will also come up with an approach to translating between byte-streams (DIN MIDI) and 4-byte packages (USB MIDI 1.0) in such a way that System Real Time messages pass through with the least possible delay.
 
-# Embedded vs external jacks
-
-TO BE CHANGED
-
-Embedded jacks (bJackType=0x01) represent &lsquo;virtual&rsquo; ports inside the device (e.g. software synth); external jacks (bJackType=0x02) represent physical connectors on the device (DIN, TRS, etc.). The USB MIDI specification do not require both &ndash; a device can have only embedded, only external, or both.
-
-The advice to always add both embedded and external jacks comes from a bug in early versions of iOS, which only worked if both were provided. This has long been resolved (apparently since iOS 7, released in 2023), so that is no longer relevant.
-
-To be fully compliant with the USB MIDI specifications it would be best to use external jacks for ports which map to MIDI DIN/TRS connectors and embedded for all other cases, although functionally it doesn&rsquo;t matter which one is used. Eventually I will make it possible to specify embedded/external for each port.
+</main>

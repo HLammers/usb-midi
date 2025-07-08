@@ -4,14 +4,12 @@
 
     To run this example:
 
-    1. Make sure usb-device-midi is installed via: mpremote mip install usb-device-midi
+    1. Run the example via: mpremote run midi_multi_streaming_example.py
 
-    2. Run the example via: mpremote run midi_example.py
-
-    3. mpremote will exit with an error after the previous step, because when the example runs the existing USB device disconnects and then
+    2. mpremote will exit with an error after the previous step, because when the example runs the existing USB device disconnects and then
        re-enumerates with the MIDI interface present - at this point, the example is running
 
-    4. To see output from the example, re-connect: mpremote connect PORTNAME
+    3. To see output from the example, re-connect: mpremote connect PORTNAME
 
     Copyright (c) 2025 Harm Lammers
     

@@ -3,7 +3,7 @@
 # These contain the classes and utilities that are needed to
 # implement a USB device, not any complete USB drivers.
 #
-# MIT license; Copyright (c) 2022-2024 Angus Gratton
+# MIT license; Copyright (c) 2022-2024 Angus Gratton, 2025 Harm Lammers
 from micropython import const
 import machine
 import struct
@@ -166,9 +166,12 @@ class _Device:
         # Keep track of the interface and endpoint indexes
         itf_num = builtin_driver.itf_max
         ep_num = max(builtin_driver.ep_max, 1)  # Endpoint 0 always reserved for control
-        while len(strs) < builtin_driver.str_max - 1:
+        while (
+            len(strs) < builtin_driver.str_max - 1
+        ):  # This is possibly unnecessary or wrong because
+            # https://docs.micropython.org/en/latest/library/machine.USBDevice.html
+            # states all string values except index 0 should be plain ASCII
             strs.append(None)  # Reserve other string indexes used by builtin drivers
-
         initial_cfg = builtin_driver.desc_cfg or (b"\x00" * _STD_DESC_CONFIG_LEN)
 
         self._itfs = {}
@@ -183,7 +186,6 @@ class _Device:
         # Allocate the real Descriptor helper to write into it, starting
         # after the standard configuration descriptor
         desc = Descriptor(bytearray(desc.o))
-
         desc.extend(initial_cfg)
         for itf in itfs:
             itf.desc_cfg(desc, itf_num, ep_num, strs)
@@ -673,11 +675,11 @@ class Descriptor:
         self,
         bInterfaceNumber,
         bNumEndpoints,
-        bAlternateSetting=0,
         bInterfaceClass=_INTERFACE_CLASS_VENDOR,
         bInterfaceSubClass=_INTERFACE_SUBCLASS_NONE,
         bInterfaceProtocol=_PROTOCOL_NONE,
         iInterface=0,
+        bAlternateSetting=0,
     ):
         # Utility function to append a standard Interface descriptor, with
         # the properties specified in the parameter list.
@@ -831,14 +833,14 @@ class Buffer:
         # (No critical section needed as self._w is only updated by the producer.)
         self._w = (_w := self._n)
         end = (_w + wmax) if wmax else self._l
-        return self._b[_w : end]
+        return self._b[_w:end]
 
     def finish_write(self, nbytes):
         # Called by the producer to indicate it wrote nbytes into the buffer.
         ist = machine.disable_irq()
         try:
-            assert nbytes <= self._l - (_w := self._w)  # can't say we wrote more than was pended
-            if self._n == _w:
+            assert nbytes <= self._l - self._w  # can't say we wrote more than was pended
+            if self._n == self._w:
                 # no data was read while the write was happening, so the buffer is already in place
                 # (this is the fast path)
                 self._n += nbytes
