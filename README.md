@@ -6,6 +6,10 @@
 </header>
 <main>
 
+> [!IMPORTANT]
+> (24/08/2025)
+> I&rsquo;ve just published a new [**multi-midi** repository](https://github.com/HLammers/multi-midi/), which replaces this one, because the name &lsquo;multi-mid&rsquo; covers the purpose (hardware + USB MIDI) better than &lsquo;usb-mid&rsquo;. I&rsquo;ll leave this repository only for documentation purposes and if I learn more about how Mac OS behaves, perhaps I&rsquo;ll update it with the details.
+
 # Introduction
 
 This story starts with the development of [Cybo-Drummer](https://github.com/HLammers/cybo-drummer), a MIDI router/mapper, programmed in MicroPython, with 6 input ports and 6 output ports, specially designed for mapping drum triggers (electronic drum kits&rsquo; modules or brains) to drum computers. Currently it only supports multiple DIN MIDI in and out ports. MicroPython support for user-defined USB devices only became available after I started working on Cybo-Drummer (with the release of MicroPython v1.23, which introduced the [`machine.USBDevice` class](https://docs.micropython.org/en/latest/library/machine.USBDevice.html)), so USB MIDI wasn&rsquo;t part of the initial set-up.
